@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
@@ -54,8 +53,6 @@ const AdminExercises = () => {
   });
 
   useEffect(() => {
-    // En una aplicación real, cargaríamos los ejercicios de la lección desde la API
-    // Aquí simulamos con datos mock de la lección actual
     const lessonData = mockLessons.find(l => l.id === lessonId);
     setExercises(lessonData?.exercises || []);
   }, [lessonId]);
@@ -63,7 +60,6 @@ const AdminExercises = () => {
   const handleExerciseTypeChange = (type: string) => {
     setExerciseType(type);
     
-    // Resetear el formulario según el tipo
     if (type === "multipleChoice") {
       setNewExercise({
         type,
@@ -125,11 +121,10 @@ const AdminExercises = () => {
 
   const handleAddExercise = () => {
     if (validateExercise()) {
-      // En una aplicación real, esto sería una llamada a la API
       const newExerciseData = {
         ...newExercise,
         id: `exercise-${Date.now()}`,
-        orderIndex: exercises.length
+        order: exercises.length
       };
 
       setExercises([...exercises, newExerciseData]);
@@ -227,7 +222,6 @@ const AdminExercises = () => {
   };
 
   const handleSaveEdit = (exerciseId: string) => {
-    // En una aplicación real, esto sería una llamada a la API
     const updatedExercises = exercises.map(exercise => {
       if (exercise.id === exerciseId) {
         return {
@@ -248,13 +242,11 @@ const AdminExercises = () => {
   };
 
   const handleDeleteExercise = (exerciseId: string) => {
-    // En una aplicación real, deberíamos mostrar una confirmación
     const updatedExercises = exercises.filter(exercise => exercise.id !== exerciseId);
     
-    // Reordenar los índices
     const reorderedExercises = updatedExercises.map((exercise, index) => ({
       ...exercise,
-      orderIndex: index
+      order: index
     }));
     
     setExercises(reorderedExercises);
@@ -279,10 +271,9 @@ const AdminExercises = () => {
     const [movedExercise] = newExercises.splice(currentIndex, 1);
     newExercises.splice(newIndex, 0, movedExercise);
 
-    // Actualizar orderIndex
     const updatedExercises = newExercises.map((exercise, index) => ({
       ...exercise,
-      orderIndex: index
+      order: index
     }));
 
     setExercises(updatedExercises);
@@ -580,7 +571,7 @@ const AdminExercises = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {exercises.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)).map((exercise) => (
+              {exercises.sort((a, b) => (a.order || 0) - (b.order || 0)).map((exercise) => (
                 <TableRow key={exercise.id}>
                   <TableCell className="w-24">
                     <div className="flex items-center space-x-1">
@@ -588,16 +579,16 @@ const AdminExercises = () => {
                         variant="ghost" 
                         size="icon"
                         onClick={() => handleMoveExercise(exercise.id, 'up')}
-                        disabled={exercise.orderIndex === 0}
+                        disabled={exercise.order === 0}
                       >
                         <ArrowUp className="h-4 w-4" />
                       </Button>
-                      <span>{(exercise.orderIndex || 0) + 1}</span>
+                      <span>{(exercise.order || 0) + 1}</span>
                       <Button 
                         variant="ghost" 
                         size="icon"
                         onClick={() => handleMoveExercise(exercise.id, 'down')}
-                        disabled={(exercise.orderIndex || 0) === exercises.length - 1}
+                        disabled={(exercise.order || 0) === exercises.length - 1}
                       >
                         <ArrowDown className="h-4 w-4" />
                       </Button>

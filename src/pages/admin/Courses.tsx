@@ -21,10 +21,11 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { mockCourses } from "@/data/mock-data";
+import { Course } from "@/types";
 
 const AdminCourses = () => {
   const navigate = useNavigate();
-  const [courses, setCourses] = useState(mockCourses);
+  const [courses, setCourses] = useState<Course[]>(mockCourses);
   const [isAddingCourse, setIsAddingCourse] = useState(false);
   const [newCourse, setNewCourse] = useState({
     title: "",
@@ -49,14 +50,14 @@ const AdminCourses = () => {
     }
 
     // En una aplicación real, esto sería una llamada a la API
-    const newCourseData = {
+    const newCourseData: Course = {
       id: `course-${Date.now()}`,
       title: newCourse.title,
       description: newCourse.description,
       coverImage: newCourse.coverImage || "https://via.placeholder.com/300",
       lessonsCount: 0,
       isActive: true,
-      level: 1
+      order: courses.length // Assign next order number
     };
 
     setCourses([...courses, newCourseData]);
@@ -131,7 +132,12 @@ const AdminCourses = () => {
   return (
     <div className="container p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Gestión de Cursos</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Gestión de Cursos</h1>
+          <p className="text-muted-foreground mt-1">
+            Selecciona un curso para gestionar sus lecciones o crea uno nuevo
+          </p>
+        </div>
         <Button onClick={() => setIsAddingCourse(!isAddingCourse)}>
           {isAddingCourse ? "Cancelar" : (
             <>
@@ -232,8 +238,13 @@ const AdminCourses = () => {
                       </Button>
                     ) : (
                       <>
-                        <Button onClick={() => handleViewLessons(course.id)} size="sm" variant="outline">
-                          <ArrowRight className="h-4 w-4" />
+                        <Button 
+                          onClick={() => handleViewLessons(course.id)} 
+                          size="sm" 
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <ArrowRight className="h-4 w-4 mr-1" />
+                          Gestionar Lecciones
                         </Button>
                         <Button onClick={() => handleEditCourse(course.id)} size="sm" variant="outline">
                           <Edit className="h-4 w-4" />
@@ -246,6 +257,13 @@ const AdminCourses = () => {
                   </TableCell>
                 </TableRow>
               ))}
+              {courses.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                    No hay cursos disponibles. Crea el primero haciendo clic en "Nuevo Curso".
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

@@ -64,6 +64,7 @@ export interface BaseExercise {
   type: string;
   order: number;
   xpReward: number;
+  orderIndex?: number; // Add orderIndex for compatibility with existing code
 }
 
 export interface MultipleChoiceExercise extends BaseExercise {
