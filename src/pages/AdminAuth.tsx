@@ -39,25 +39,7 @@ const AdminAuth = () => {
   const handleAdminLogin = async (values: AdminLoginValues) => {
     setLoading(true);
     try {
-      // Verificar si las credenciales coinciden con las del administrador
-      const { data, error } = await supabase
-        .from("admins")
-        .select("*")
-        .eq("email", values.email)
-        .single();
-
-      if (error || !data) {
-        toast({
-          title: "Error de autenticación",
-          description: "Credenciales de administrador incorrectas",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Para una aplicación real, deberíamos verificar la contraseña con bcrypt
-      // Pero para este ejemplo, verificamos directamente (ya que la contraseña en la base de datos es un hash)
+      // Verificar si el email y la contraseña coinciden con las predefinidas
       if (values.email === "admin@sagrapp.com" && values.password === "admin123") {
         // Almacenar en localStorage que es un admin
         localStorage.setItem("isAdmin", "true");
