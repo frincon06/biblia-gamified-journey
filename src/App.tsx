@@ -15,6 +15,9 @@ import Auth from "./pages/Auth";
 import AdminAuth from "./pages/AdminAuth";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminRoute from "./components/AdminRoute";
+import AdminCourses from "./pages/admin/Courses";
+import AdminLessons from "./pages/admin/Lessons";
+import AdminExercises from "./pages/admin/Exercises";
 import { NavBar } from "./components/NavBar";
 
 const queryClient = new QueryClient();
@@ -51,15 +54,23 @@ const App = () => (
               path="/admin/courses" 
               element={
                 <AdminRoute>
-                  <div className="p-6">Gestión de Cursos en desarrollo...</div>
+                  <AdminCourses />
                 </AdminRoute>
               } 
             />
             <Route 
-              path="/admin/lessons" 
+              path="/admin/courses/:courseId/lessons" 
               element={
                 <AdminRoute>
-                  <div className="p-6">Gestión de Lecciones en desarrollo...</div>
+                  <AdminLessons />
+                </AdminRoute>
+              } 
+            />
+            <Route 
+              path="/admin/lessons/:lessonId/exercises" 
+              element={
+                <AdminRoute>
+                  <AdminExercises />
                 </AdminRoute>
               } 
             />

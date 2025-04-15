@@ -15,7 +15,7 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
     setIsAdmin(adminStatus);
   }, []);
 
-  // Mientras verifica, mostrar nada o un spinner
+  // Mientras verifica, mostrar un spinner
   if (isAdmin === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">

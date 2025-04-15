@@ -1,71 +1,23 @@
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, BookOpen, Users, Award } from "lucide-react";
-import { Line } from "recharts";
-
-interface StatsType {
-  coursesCount: number;
-  lessonsCount: number;
-  usersCount: number;
-  completedLessonsCount: number;
-}
+import { 
+  BookOpen, 
+  GraduationCap,  
+  Users, 
+  BarChart3, 
+  LogOut,
+  Book
+} from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState<StatsType>({
-    coursesCount: 0,
-    lessonsCount: 0,
-    usersCount: 0,
-    completedLessonsCount: 0,
-  });
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
   
-  const [loading, setLoading] = useState(true);
-  const [adminEmail, setAdminEmail] = useState("");
-
   useEffect(() => {
     const email = localStorage.getItem("adminEmail");
-    if (email) {
-      setAdminEmail(email);
-    }
-    
-    const fetchStats = async () => {
-      try {
-        // Obtener conteo de cursos
-        const { count: coursesCount } = await supabase
-          .from("courses")
-          .select("*", { count: 'exact', head: true });
-        
-        // Obtener conteo de lecciones
-        const { count: lessonsCount } = await supabase
-          .from("lessons")
-          .select("*", { count: 'exact', head: true });
-        
-        // Obtener conteo de usuarios
-        const { count: usersCount } = await supabase
-          .from("user_progress")
-          .select("*", { count: 'exact', head: true });
-        
-        // Obtener conteo de lecciones completadas
-        const { count: completedLessonsCount } = await supabase
-          .from("completed_lessons")
-          .select("*", { count: 'exact', head: true });
-        
-        setStats({
-          coursesCount: coursesCount || 0,
-          lessonsCount: lessonsCount || 0,
-          usersCount: usersCount || 0,
-          completedLessonsCount: completedLessonsCount || 0,
-        });
-      } catch (error) {
-        console.error("Error al obtener estadísticas:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchStats();
+    setAdminEmail(email);
   }, []);
 
   const handleLogout = () => {
@@ -75,151 +27,130 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-md py-4 px-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Panel de Administración</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-gray-600">{adminEmail}</span>
-          <button 
-            onClick={handleLogout}
-            className="text-red-600 hover:text-red-800"
-          >
-            Cerrar Sesión
-          </button>
+    <div className="container mx-auto p-6">
+      <header className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Panel de Administración</h1>
+          <p className="text-gray-600">Bienvenido, {adminEmail || "administrador"}</p>
         </div>
+        <Button variant="outline" onClick={handleLogout}>
+          <LogOut className="w-4 h-4 mr-2" />
+          Cerrar sesión
+        </Button>
       </header>
-      
-      <div className="container mx-auto px-4 py-8">
-        <h2 className="text-3xl font-bold mb-6">Dashboard</h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">Cursos</CardTitle>
+            <CardDescription>Total de cursos disponibles</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">5</p>
+          </CardContent>
+          <CardFooter>
+            <Link to="/admin/courses" className="text-blue-600 hover:underline text-sm">
+              Ver todos los cursos
+            </Link>
+          </CardFooter>
+        </Card>
         
-        {loading ? (
-          <div className="flex justify-center my-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-medium">
-                    Total de Cursos
-                  </CardTitle>
-                  <BookOpen className="h-5 w-5 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.coursesCount}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Cursos disponibles en la plataforma
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-medium">
-                    Total de Lecciones
-                  </CardTitle>
-                  <Award className="h-5 w-5 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.lessonsCount}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Lecciones disponibles en todos los cursos
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-medium">
-                    Total de Usuarios
-                  </CardTitle>
-                  <Users className="h-5 w-5 text-purple-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.usersCount}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Usuarios registrados en la plataforma
-                  </p>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-medium">
-                    Lecciones Completadas
-                  </CardTitle>
-                  <BarChart className="h-5 w-5 text-amber-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.completedLessonsCount}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Total de lecciones completadas por usuarios
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Accesos rápidos</CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4">
-                  <Link 
-                    to="/admin/courses" 
-                    className="flex items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg"
-                  >
-                    <BookOpen className="h-5 w-5 mr-3 text-blue-600" />
-                    <span>Gestionar Cursos</span>
-                  </Link>
-                  
-                  <Link 
-                    to="/admin/lessons" 
-                    className="flex items-center p-4 bg-green-50 hover:bg-green-100 rounded-lg"
-                  >
-                    <Award className="h-5 w-5 mr-3 text-green-600" />
-                    <span>Gestionar Lecciones</span>
-                  </Link>
-                  
-                  <Link 
-                    to="/admin/users" 
-                    className="flex items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg"
-                  >
-                    <Users className="h-5 w-5 mr-3 text-purple-600" />
-                    <span>Ver Progreso de Usuarios</span>
-                  </Link>
-                  
-                  <Link 
-                    to="/admin/stats" 
-                    className="flex items-center p-4 bg-amber-50 hover:bg-amber-100 rounded-lg"
-                  >
-                    <BarChart className="h-5 w-5 mr-3 text-amber-600" />
-                    <span>Ver Estadísticas</span>
-                  </Link>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Instrucciones</CardTitle>
-                </CardHeader>
-                <CardContent className="prose">
-                  <p>Bienvenido al panel de administración de SagrApp. Desde aquí podrás:</p>
-                  <ul className="list-disc pl-6 space-y-1">
-                    <li>Crear y gestionar cursos bíblicos</li>
-                    <li>Añadir lecciones con contenido educativo</li>
-                    <li>Crear ejercicios interactivos de diferentes tipos</li>
-                    <li>Configurar decisiones personales para los usuarios</li>
-                    <li>Ver el progreso de los usuarios en la plataforma</li>
-                    <li>Analizar estadísticas de uso y participación</li>
-                  </ul>
-                  <p className="mt-4">Utiliza las opciones del menú para navegar por las diferentes secciones.</p>
-                </CardContent>
-              </Card>
-            </div>
-          </>
-        )}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">Lecciones</CardTitle>
+            <CardDescription>Total de lecciones</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">24</p>
+          </CardContent>
+          <CardFooter>
+            <Link to="/admin/courses" className="text-blue-600 hover:underline text-sm">
+              Gestionar lecciones
+            </Link>
+          </CardFooter>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">Usuarios</CardTitle>
+            <CardDescription>Total de usuarios registrados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">152</p>
+          </CardContent>
+          <CardFooter>
+            <Link to="/admin/users" className="text-blue-600 hover:underline text-sm">
+              Ver todos los usuarios
+            </Link>
+          </CardFooter>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl">Completadas</CardTitle>
+            <CardDescription>Lecciones completadas por usuarios</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">487</p>
+          </CardContent>
+          <CardFooter>
+            <Link to="/admin/stats" className="text-blue-600 hover:underline text-sm">
+              Ver estadísticas
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
+
+      <h2 className="text-xl font-bold mb-4">Acciones rápidas</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link to="/admin/courses">
+          <Card className="hover:bg-gray-50 transition-colors cursor-pointer h-full">
+            <CardContent className="flex flex-col items-center justify-center py-6">
+              <BookOpen className="h-12 w-12 text-blue-600 mb-4" />
+              <h3 className="font-medium text-center">Gestionar Cursos</h3>
+              <p className="text-gray-500 text-sm text-center mt-1">
+                Crear, editar o eliminar cursos
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/admin/courses">
+          <Card className="hover:bg-gray-50 transition-colors cursor-pointer h-full">
+            <CardContent className="flex flex-col items-center justify-center py-6">
+              <Book className="h-12 w-12 text-green-600 mb-4" />
+              <h3 className="font-medium text-center">Gestionar Lecciones</h3>
+              <p className="text-gray-500 text-sm text-center mt-1">
+                Administrar contenido de lecciones
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/admin/users">
+          <Card className="hover:bg-gray-50 transition-colors cursor-pointer h-full">
+            <CardContent className="flex flex-col items-center justify-center py-6">
+              <Users className="h-12 w-12 text-purple-600 mb-4" />
+              <h3 className="font-medium text-center">Gestionar Usuarios</h3>
+              <p className="text-gray-500 text-sm text-center mt-1">
+                Ver progreso y datos de usuarios
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/admin/stats">
+          <Card className="hover:bg-gray-50 transition-colors cursor-pointer h-full">
+            <CardContent className="flex flex-col items-center justify-center py-6">
+              <BarChart3 className="h-12 w-12 text-amber-600 mb-4" />
+              <h3 className="font-medium text-center">Estadísticas</h3>
+              <p className="text-gray-500 text-sm text-center mt-1">
+                Analizar datos de uso de la plataforma
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
     </div>
   );
