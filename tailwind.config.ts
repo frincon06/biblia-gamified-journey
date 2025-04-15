@@ -61,7 +61,25 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// SagrApp colores personalizados
+				sagr: {
+					blue: '#3B82F6',
+					gold: '#F59E0B',
+					gray: {
+						100: '#F3F4F6',
+						200: '#E5E7EB',
+						300: '#D1D5DB',
+						400: '#9CA3AF',
+						500: '#6B7280',
+						600: '#4B5563',
+						700: '#374151',
+						800: '#1F2937',
+						900: '#111827'
+					}
+				},
+				xp: '#78DD76', // Color para experiencia
+				streak: '#FF9838', // Color para rachas
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
