@@ -25,6 +25,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { mockLessons } from "@/data/mock-data";
 import { Exercise } from "@/types";
+import AdminNavBar from "@/components/admin/AdminNavBar";
 
 const AdminExercises = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
@@ -465,167 +466,170 @@ const AdminExercises = () => {
   };
 
   return (
-    <div className="container p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <Link 
-            to={`/admin/courses/${lesson?.courseId}/lessons`}
-            className="flex items-center text-sm text-gray-600 mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Volver a lecciones
-          </Link>
-          <h1 className="text-2xl font-bold">
-            Ejercicios de la lección: {lesson?.title}
-          </h1>
+    <div>
+      <AdminNavBar />
+      <div className="container p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <Link 
+              to={`/admin/courses/${lesson?.courseId}/lessons`}
+              className="flex items-center text-sm text-gray-600 mb-2"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Volver a lecciones
+            </Link>
+            <h1 className="text-2xl font-bold">
+              Ejercicios de la lección: {lesson?.title}
+            </h1>
+          </div>
+          <Button onClick={() => setIsAddingExercise(!isAddingExercise)}>
+            {isAddingExercise ? "Cancelar" : (
+              <>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nuevo Ejercicio
+              </>
+            )}
+          </Button>
         </div>
-        <Button onClick={() => setIsAddingExercise(!isAddingExercise)}>
-          {isAddingExercise ? "Cancelar" : (
-            <>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Nuevo Ejercicio
-            </>
-          )}
-        </Button>
-      </div>
 
-      {isAddingExercise && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Crear Nuevo Ejercicio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de ejercicio
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <Button 
-                    type="button"
-                    variant={exerciseType === "multipleChoice" ? "default" : "outline"}
-                    onClick={() => handleExerciseTypeChange("multipleChoice")}
-                  >
-                    Selección múltiple
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant={exerciseType === "trueFalse" ? "default" : "outline"}
-                    onClick={() => handleExerciseTypeChange("trueFalse")}
-                  >
-                    Verdadero o falso
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant={exerciseType === "fillBlank" ? "default" : "outline"}
-                    onClick={() => handleExerciseTypeChange("fillBlank")}
-                  >
-                    Completar
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant={exerciseType === "reflection" ? "default" : "outline"}
-                    onClick={() => handleExerciseTypeChange("reflection")}
-                  >
-                    Reflexión
-                  </Button>
+        {isAddingExercise && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Crear Nuevo Ejercicio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo de ejercicio
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button 
+                      type="button"
+                      variant={exerciseType === "multipleChoice" ? "default" : "outline"}
+                      onClick={() => handleExerciseTypeChange("multipleChoice")}
+                    >
+                      Selección múltiple
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant={exerciseType === "trueFalse" ? "default" : "outline"}
+                      onClick={() => handleExerciseTypeChange("trueFalse")}
+                    >
+                      Verdadero o falso
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant={exerciseType === "fillBlank" ? "default" : "outline"}
+                      onClick={() => handleExerciseTypeChange("fillBlank")}
+                    >
+                      Completar
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant={exerciseType === "reflection" ? "default" : "outline"}
+                      onClick={() => handleExerciseTypeChange("reflection")}
+                    >
+                      Reflexión
+                    </Button>
+                  </div>
                 </div>
+                
+                <div>
+                  <label htmlFor="xpReward" className="block text-sm font-medium text-gray-700 mb-1">
+                    Recompensa de XP
+                  </label>
+                  <Input
+                    id="xpReward"
+                    type="number"
+                    value={newExercise.xpReward}
+                    onChange={(e) => setNewExercise({ ...newExercise, xpReward: parseInt(e.target.value) || 0 })}
+                    min="1"
+                    max="20"
+                    className="max-w-[200px]"
+                  />
+                </div>
+                
+                {renderExerciseForm()}
               </div>
-              
-              <div>
-                <label htmlFor="xpReward" className="block text-sm font-medium text-gray-700 mb-1">
-                  Recompensa de XP
-                </label>
-                <Input
-                  id="xpReward"
-                  type="number"
-                  value={newExercise.xpReward}
-                  onChange={(e) => setNewExercise({ ...newExercise, xpReward: parseInt(e.target.value) || 0 })}
-                  min="1"
-                  max="20"
-                  className="max-w-[200px]"
-                />
-              </div>
-              
-              {renderExerciseForm()}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={handleAddExercise} className="w-full">
-              Crear Ejercicio
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleAddExercise} className="w-full">
+                Crear Ejercicio
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Orden</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Contenido</TableHead>
-                <TableHead>XP</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {exercises.sort((a, b) => (a.order || 0) - (b.order || 0)).map((exercise) => (
-                <TableRow key={exercise.id}>
-                  <TableCell className="w-24">
-                    <div className="flex items-center space-x-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleMoveExercise(exercise.id, 'up')}
-                        disabled={exercise.order === 0}
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <span>{(exercise.order || 0) + 1}</span>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => handleMoveExercise(exercise.id, 'down')}
-                        disabled={(exercise.order || 0) === exercises.length - 1}
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {getExerciseTypeLabel(exercise.type)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-xs truncate">
-                      {getExerciseSummary(exercise)}
-                    </div>
-                  </TableCell>
-                  <TableCell>{exercise.xpReward || 0} XP</TableCell>
-                  <TableCell className="text-right flex justify-end gap-2">
-                    <Button onClick={() => handleEditExercise(exercise)} size="sm" variant="outline">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button onClick={() => handleDeleteExercise(exercise.id)} size="sm" variant="destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {exercises.length === 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                    No hay ejercicios para esta lección. Crea el primero haciendo clic en "Nuevo Ejercicio".
-                  </TableCell>
+                  <TableHead>Orden</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Contenido</TableHead>
+                  <TableHead>XP</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {exercises.sort((a, b) => (a.order || 0) - (b.order || 0)).map((exercise) => (
+                  <TableRow key={exercise.id}>
+                    <TableCell className="w-24">
+                      <div className="flex items-center space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleMoveExercise(exercise.id, 'up')}
+                          disabled={exercise.order === 0}
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <span>{(exercise.order || 0) + 1}</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleMoveExercise(exercise.id, 'down')}
+                          disabled={(exercise.order || 0) === exercises.length - 1}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {getExerciseTypeLabel(exercise.type)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="max-w-xs truncate">
+                        {getExerciseSummary(exercise)}
+                      </div>
+                    </TableCell>
+                    <TableCell>{exercise.xpReward || 0} XP</TableCell>
+                    <TableCell className="text-right flex justify-end gap-2">
+                      <Button onClick={() => handleEditExercise(exercise)} size="sm" variant="outline">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button onClick={() => handleDeleteExercise(exercise.id)} size="sm" variant="destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {exercises.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      No hay ejercicios para esta lección. Crea el primero haciendo clic en "Nuevo Ejercicio".
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

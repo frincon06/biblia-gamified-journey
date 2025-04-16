@@ -1,140 +1,180 @@
 
-import { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
-import { User } from "@/types";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
-// Mock function to fetch user data
-const fetchUserProfile = async (): Promise<User> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    throw new Error("No user logged in");
-  }
-  
-  return {
-    id: user.id,
-    email: user.email || "",
-    name: user.user_metadata?.name || "Usuario",
-    avatar: user.user_metadata?.avatar || "https://via.placeholder.com/150",
-    xp: 1250,
-    streak: 7,
-    level: 3
-  };
-};
+// Extend the User type to include avatar
+interface ExtendedUser extends User {
+  avatar_url?: string;
+}
 
 const Profile = () => {
-  const [session, setSession] = useState(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [username, setUsername] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      
+      if (data.user) {
+        // Default avatar if none exists
+        const userWithAvatar = {
+          ...data.user,
+          avatar_url: data.user.user_metadata?.avatar_url || "https://api.dicebear.com/7.x/bottts/svg?seed=" + data.user.id
+        };
+        setUser(userWithAvatar);
+        setUsername(data.user.user_metadata?.username || data.user.email?.split('@')[0] || "");
+        setAvatarUrl(userWithAvatar.avatar_url || "");
       }
-    );
-
-    return () => subscription.unsubscribe();
+      
+      setLoading(false);
+    };
+    
+    getUser();
   }, []);
-
-  // Fix: Correct the useQuery implementation by removing onError
-  const { data: user, isLoading, error } = useQuery({
-    queryKey: ["user-profile"],
-    queryFn: fetchUserProfile,
-    retry: false,
-    enabled: !!session
-  });
-
-  // Handle error display with useEffect instead
-  useEffect(() => {
-    if (error) {
+  
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+    
+    setUpdating(true);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          username,
+          avatar_url: avatarUrl
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update the local user object
+      setUser({
+        ...user,
+        user_metadata: {
+          ...user.user_metadata,
+          username,
+          avatar_url: avatarUrl
+        },
+        avatar_url: avatarUrl
+      });
+      
+      toast({
+        title: "Perfil actualizado",
+        description: "Tu perfil ha sido actualizado correctamente."
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
       toast({
         title: "Error",
-        description: "No se pudo cargar el perfil",
+        description: "No se pudo actualizar el perfil. Inténtalo de nuevo.",
         variant: "destructive"
       });
+    } finally {
+      setUpdating(false);
     }
-  }, [error]);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    toast({
-      title: "Sesión cerrada",
-      description: "Has cerrado sesión correctamente"
-    });
   };
-
-  if (!session) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  if (isLoading) {
+  
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+  
+  if (loading) {
     return (
-      <div className="container mx-auto p-6 flex justify-center items-center min-h-[80vh]">
-        <div className="animate-pulse text-lg">Cargando perfil...</div>
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
-  return (
-    <div className="container mx-auto p-6 pb-20 animate-fade-in">
-      <h1 className="text-2xl font-bold mb-6">Mi Perfil</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="col-span-1">
+  
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card>
           <CardHeader>
-            <CardTitle>Información Personal</CardTitle>
+            <CardTitle>No has iniciado sesión</CardTitle>
+            <CardDescription>Inicia sesión para ver tu perfil</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center">
-            <Avatar className="w-32 h-32 mb-4">
-              <AvatarImage src={user?.avatar} alt={user?.name} />
-              <AvatarFallback>
-                <UserIcon className="w-12 h-12" />
-              </AvatarFallback>
-            </Avatar>
-            <h2 className="text-xl font-bold mb-2">{user?.name}</h2>
-            <p className="text-muted-foreground mb-4">{user?.email}</p>
-            <Button variant="destructive" onClick={handleSignOut} className="w-full">
-              <LogOut className="mr-2 h-4 w-4" />
-              Cerrar Sesión
+          <CardContent>
+            <Button onClick={() => (window.location.href = "/auth")}>
+              Iniciar sesión
             </Button>
           </CardContent>
         </Card>
-
-        <Card className="col-span-1 md:col-span-2">
-          <CardHeader>
-            <CardTitle>Editar Perfil</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nombre</Label>
-                <Input id="name" defaultValue={user?.name} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" defaultValue={user?.email} disabled />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="avatar">URL del Avatar</Label>
-                <Input id="avatar" defaultValue={user?.avatar} />
-              </div>
-              <Button type="submit">Guardar Cambios</Button>
-            </form>
-          </CardContent>
-        </Card>
       </div>
+    );
+  }
+  
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <Card className="shadow-lg animate-fade-in">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4">
+            <Avatar className="h-20 w-20 mx-auto">
+              <AvatarImage src={user.avatar_url} alt={username} />
+              <AvatarFallback>{username.substring(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+          </div>
+          <CardTitle className="text-2xl">Tu perfil</CardTitle>
+          <CardDescription>Administra tu información personal</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="email">Correo electrónico</Label>
+            <Input id="email" value={user.email || ""} readOnly />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="username">Nombre de usuario</Label>
+            <Input 
+              id="username" 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)} 
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="avatar">URL del avatar (opcional)</Label>
+            <Input 
+              id="avatar" 
+              value={avatarUrl} 
+              onChange={(e) => setAvatarUrl(e.target.value)}
+              placeholder="https://ejemplo.com/imagen.jpg" 
+            />
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <Button 
+              onClick={handleUpdateProfile} 
+              disabled={updating}
+              className="w-full"
+            >
+              {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Actualizar perfil
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleLogout} 
+              className="w-full"
+            >
+              Cerrar sesión
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

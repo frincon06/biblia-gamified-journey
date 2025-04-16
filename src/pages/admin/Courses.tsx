@@ -8,6 +8,7 @@ import { Course } from "@/types";
 import CourseForm from "@/components/admin/CourseForm";
 import CourseList from "@/components/admin/CourseList";
 import DeleteCourseDialog from "@/components/admin/DeleteCourseDialog";
+import AdminNavBar from "@/components/admin/AdminNavBar";
 
 const AdminCourses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -149,52 +150,56 @@ const AdminCourses = () => {
   };
 
   return (
-    <div className="container p-6 animate-fade-in">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Gestión de Cursos</h1>
-          <p className="text-muted-foreground mt-1">
-            Selecciona un curso para gestionar sus lecciones o crea uno nuevo
-          </p>
-        </div>
-        <Button onClick={() => setIsAddingCourse(!isAddingCourse)} 
-          className="transition-all duration-300 hover:scale-105">
-          {isAddingCourse ? "Cancelar" : (
-            <>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Nuevo Curso
-            </>
-          )}
-        </Button>
-      </div>
-
-      {isAddingCourse && (
-        <CourseForm 
-          onAddCourse={handleAddCourse} 
-          onCancel={() => setIsAddingCourse(false)} 
-        />
-      )}
-
-      <Card className="animate-fade-in" style={{ animationDelay: "0.1s" }}>
-        <CardContent className="p-0">
-          <CourseList 
-            courses={courses}
-            onToggleCourseStatus={handleToggleCourseStatus}
-            onEditCourse={handleEditCourse}
-            onSaveEdit={handleSaveEdit}
-            onDeleteCourse={confirmDeleteCourse}
-            editingCourse={editingCourse}
-            editForm={editForm}
-            setEditForm={setEditForm}
-          />
-        </CardContent>
-      </Card>
+    <div className="animate-fade-in">
+      <AdminNavBar />
       
-      <DeleteCourseDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirmDelete={handleDeleteCourse}
-      />
+      <div className="container p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">Gestión de Cursos</h1>
+            <p className="text-muted-foreground mt-1">
+              Selecciona un curso para gestionar sus lecciones o crea uno nuevo
+            </p>
+          </div>
+          <Button onClick={() => setIsAddingCourse(!isAddingCourse)} 
+            className="transition-all duration-300 hover:scale-105">
+            {isAddingCourse ? "Cancelar" : (
+              <>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nuevo Curso
+              </>
+            )}
+          </Button>
+        </div>
+
+        {isAddingCourse && (
+          <CourseForm 
+            onAddCourse={handleAddCourse} 
+            onCancel={() => setIsAddingCourse(false)} 
+          />
+        )}
+
+        <Card className="animate-fade-in" style={{ animationDelay: "0.1s" }}>
+          <CardContent className="p-0">
+            <CourseList 
+              courses={courses}
+              onToggleCourseStatus={handleToggleCourseStatus}
+              onEditCourse={handleEditCourse}
+              onSaveEdit={handleSaveEdit}
+              onDeleteCourse={confirmDeleteCourse}
+              editingCourse={editingCourse}
+              editForm={editForm}
+              setEditForm={setEditForm}
+            />
+          </CardContent>
+        </Card>
+        
+        <DeleteCourseDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirmDelete={handleDeleteCourse}
+        />
+      </div>
     </div>
   );
 };

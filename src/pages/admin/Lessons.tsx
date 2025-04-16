@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
@@ -29,6 +28,7 @@ import { mockLessons, mockCourses } from "@/data/mock-data";
 import { Lesson } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import AdminNavBar from "@/components/admin/AdminNavBar";
 
 const AdminLessons = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -60,12 +60,9 @@ const AdminLessons = () => {
   });
 
   useEffect(() => {
-    // En una aplicación real, cargaríamos las lecciones del curso desde la API
-    // Aquí simulamos con datos mock
     const courseLessons = mockLessons.filter(lesson => lesson.courseId === courseId);
     setLessons(courseLessons);
     
-    // Si hay lecciones, seleccionar la primera por defecto
     if (courseLessons.length > 0 && !selectedLesson) {
       setSelectedLesson(courseLessons[0].id);
       setLessonData(courseLessons[0]);
@@ -99,18 +96,15 @@ const AdminLessons = () => {
       return;
     }
 
-    // Calculate order based on selected position
     const existingLessons = [...lessons];
     const position = Math.min(Math.max(newLesson.position, 0), existingLessons.length);
     
-    // Adjust order values for existing lessons
     existingLessons.forEach(lesson => {
       if (lesson.orderIndex >= position) {
         lesson.orderIndex += 1;
       }
     });
 
-    // En una aplicación real, esto sería una llamada a la API
     const newLessonData = {
       id: `lesson-${Date.now()}`,
       courseId: courseId,
@@ -138,7 +132,6 @@ const AdminLessons = () => {
     });
     setIsAddingLesson(false);
     
-    // Auto-select the newly created lesson
     setSelectedLesson(newLessonData.id);
     setLessonData(newLessonData);
 
@@ -160,7 +153,6 @@ const AdminLessons = () => {
       return;
     }
 
-    // En una aplicación real, esto sería una llamada a la API
     const updatedLessons = lessons.map(lesson => {
       if (lesson.id === selectedLesson) {
         const updatedLesson = {
@@ -188,10 +180,8 @@ const AdminLessons = () => {
   };
 
   const handleDeleteLesson = (lessonId: string) => {
-    // En una aplicación real, deberíamos mostrar una confirmación
     const updatedLessons = lessons.filter(lesson => lesson.id !== lessonId);
     
-    // Reordenar índices
     const reorderedLessons = updatedLessons.map((lesson, index) => ({
       ...lesson,
       orderIndex: index
@@ -199,7 +189,6 @@ const AdminLessons = () => {
     
     setLessons(reorderedLessons);
     
-    // Si eliminamos la lección seleccionada, seleccionar otra
     if (lessonId === selectedLesson) {
       if (reorderedLessons.length > 0) {
         setSelectedLesson(reorderedLessons[0].id);
@@ -230,7 +219,6 @@ const AdminLessons = () => {
     const [movedLesson] = newLessons.splice(currentIndex, 1);
     newLessons.splice(newIndex, 0, movedLesson);
 
-    // Actualizar orderIndex
     const updatedLessons = newLessons.map((lesson, index) => ({
       ...lesson,
       orderIndex: index
@@ -623,23 +611,26 @@ const AdminLessons = () => {
   };
 
   return (
-    <div className="container p-6">
-      <div className="mb-6">
-        <Link 
-          to="/admin/courses" 
-          className="flex items-center text-sm text-gray-600 mb-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Volver a cursos
-        </Link>
-        <h1 className="text-2xl font-bold">
-          Lecciones del curso: {course?.title}
-        </h1>
-      </div>
+    <div>
+      <AdminNavBar />
+      <div className="container p-6">
+        <div className="mb-6">
+          <Link 
+            to="/admin/courses" 
+            className="flex items-center text-sm text-gray-600 mb-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Volver a cursos
+          </Link>
+          <h1 className="text-2xl font-bold">
+            Lecciones del curso: {course?.title}
+          </h1>
+        </div>
 
-      <div className="flex gap-6">
-        {renderLessonsList()}
-        {isAddingLesson ? renderCreateLessonForm() : renderLessonDetail()}
+        <div className="flex gap-6">
+          {renderLessonsList()}
+          {isAddingLesson ? renderCreateLessonForm() : renderLessonDetail()}
+        </div>
       </div>
     </div>
   );
