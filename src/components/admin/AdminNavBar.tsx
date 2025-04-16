@@ -12,18 +12,20 @@ import {
   NavigationMenu, 
   NavigationMenuContent, 
   NavigationMenuItem, 
-  NavigationMenuLink, 
   NavigationMenuList, 
   NavigationMenuTrigger 
 } from "@/components/ui/navigation-menu";
 import { Button } from "@/components/ui/button";
 import { navigationMenuTriggerStyle } from "@/components/ui/navigation-menu";
+import { useNavigate } from "react-router-dom";
 
 const AdminNavBar = () => {
+  const navigate = useNavigate();
+  
   const handleLogout = () => {
     localStorage.removeItem("isAdmin");
     localStorage.removeItem("adminEmail");
-    window.location.href = "/admin";
+    navigate("/admin");
   };
 
   return (
@@ -39,12 +41,12 @@ const AdminNavBar = () => {
         <NavigationMenu>
           <NavigationMenuList>
             <NavigationMenuItem>
-              <Link to="/admin/dashboard">
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+              <NavigationMenuLink asChild>
+                <Link to="/admin/dashboard" className={navigationMenuTriggerStyle()}>
                   <LayoutDashboard className="w-4 h-4 mr-2" />
                   Dashboard
-                </NavigationMenuLink>
-              </Link>
+                </Link>
+              </NavigationMenuLink>
             </NavigationMenuItem>
             
             <NavigationMenuItem>
@@ -64,21 +66,21 @@ const AdminNavBar = () => {
             </NavigationMenuItem>
             
             <NavigationMenuItem>
-              <Link to="/admin/users">
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+              <NavigationMenuLink asChild>
+                <Link to="/admin/users" className={navigationMenuTriggerStyle()}>
                   <Users className="w-4 h-4 mr-2" />
                   Usuarios
-                </NavigationMenuLink>
-              </Link>
+                </Link>
+              </NavigationMenuLink>
             </NavigationMenuItem>
             
             <NavigationMenuItem>
-              <Link to="/admin/stats">
-                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+              <NavigationMenuLink asChild>
+                <Link to="/admin/stats" className={navigationMenuTriggerStyle()}>
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Estadísticas
-                </NavigationMenuLink>
-              </Link>
+                </Link>
+              </NavigationMenuLink>
             </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
@@ -89,6 +91,18 @@ const AdminNavBar = () => {
         Cerrar sesión
       </Button>
     </div>
+  );
+};
+
+// Adding this component to avoid the React warning about nesting anchor tags
+const NavigationMenuLink = ({ children, asChild, ...props }) => {
+  if (asChild) {
+    return children;
+  }
+  return (
+    <Link {...props}>
+      {children}
+    </Link>
   );
 };
 

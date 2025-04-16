@@ -9,14 +9,68 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import AdminNavBar from "@/components/admin/AdminNavBar";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminDashboard = () => {
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    coursesCount: 0,
+    lessonsCount: 0,
+    usersCount: 0,
+    completedLessonsCount: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
     const email = localStorage.getItem("adminEmail");
     setAdminEmail(email);
+    
+    fetchStats();
   }, []);
+
+  const fetchStats = async () => {
+    setIsLoading(true);
+    try {
+      // Get courses count
+      const { count: coursesCount, error: coursesError } = await supabase
+        .from('courses')
+        .select('*', { count: 'exact', head: true });
+      
+      if (coursesError) throw coursesError;
+      
+      // Get lessons count
+      const { count: lessonsCount, error: lessonsError } = await supabase
+        .from('lessons')
+        .select('*', { count: 'exact', head: true });
+      
+      if (lessonsError) throw lessonsError;
+      
+      // Get users count (simplified - would normally be from auth.users)
+      const { count: usersCount, error: usersError } = await supabase
+        .from('user_progress')
+        .select('*', { count: 'exact', head: true });
+      
+      if (usersError) throw usersError;
+      
+      // Get completed lessons count
+      const { count: completedLessonsCount, error: completedError } = await supabase
+        .from('completed_lessons')
+        .select('*', { count: 'exact', head: true });
+      
+      if (completedError) throw completedError;
+      
+      setStats({
+        coursesCount: coursesCount || 0,
+        lessonsCount: lessonsCount || 0,
+        usersCount: usersCount || 0,
+        completedLessonsCount: completedLessonsCount || 0
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="animate-fade-in">
@@ -35,7 +89,11 @@ const AdminDashboard = () => {
               <CardDescription>Total de cursos disponibles</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">5</p>
+              {isLoading ? (
+                <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                <p className="text-3xl font-bold">{stats.coursesCount}</p>
+              )}
             </CardContent>
             <CardFooter>
               <Link to="/admin/courses" className="text-blue-600 hover:underline text-sm">
@@ -50,7 +108,11 @@ const AdminDashboard = () => {
               <CardDescription>Total de lecciones</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">24</p>
+              {isLoading ? (
+                <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                <p className="text-3xl font-bold">{stats.lessonsCount}</p>
+              )}
             </CardContent>
             <CardFooter>
               <Link to="/admin/courses" className="text-blue-600 hover:underline text-sm">
@@ -65,7 +127,11 @@ const AdminDashboard = () => {
               <CardDescription>Total de usuarios registrados</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">152</p>
+              {isLoading ? (
+                <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                <p className="text-3xl font-bold">{stats.usersCount}</p>
+              )}
             </CardContent>
             <CardFooter>
               <Link to="/admin/users" className="text-blue-600 hover:underline text-sm">
@@ -80,7 +146,11 @@ const AdminDashboard = () => {
               <CardDescription>Lecciones completadas por usuarios</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">487</p>
+              {isLoading ? (
+                <div className="h-8 w-24 bg-gray-200 animate-pulse rounded"></div>
+              ) : (
+                <p className="text-3xl font-bold">{stats.completedLessonsCount}</p>
+              )}
             </CardContent>
             <CardFooter>
               <Link to="/admin/stats" className="text-blue-600 hover:underline text-sm">

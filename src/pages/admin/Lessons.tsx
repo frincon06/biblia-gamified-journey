@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
@@ -24,17 +25,17 @@ import {
   TableCell 
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { mockLessons, mockCourses } from "@/data/mock-data";
 import { Lesson } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import AdminNavBar from "@/components/admin/AdminNavBar";
+import { supabase } from "@/integrations/supabase/client";
 
 const AdminLessons = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   
-  const [course, setCourse] = useState(mockCourses.find(c => c.id === courseId));
+  const [course, setCourse] = useState<any>(null);
   const [lessons, setLessons] = useState<any[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
   const [lessonData, setLessonData] = useState<any>(null);
@@ -58,16 +59,77 @@ const AdminLessons = () => {
     scriptureReference: "",
     type: "normal"
   });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const courseLessons = mockLessons.filter(lesson => lesson.courseId === courseId);
-    setLessons(courseLessons);
-    
-    if (courseLessons.length > 0 && !selectedLesson) {
-      setSelectedLesson(courseLessons[0].id);
-      setLessonData(courseLessons[0]);
+    if (courseId) {
+      fetchCourse();
+      fetchLessons();
     }
-  }, [courseId, selectedLesson]);
+  }, [courseId]);
+
+  const fetchCourse = async () => {
+    if (!courseId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', courseId)
+        .single();
+      
+      if (error) throw error;
+      
+      setCourse(data);
+    } catch (error) {
+      console.error("Error loading course:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el curso",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fetchLessons = async () => {
+    if (!courseId) return;
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('order_index', { ascending: true });
+      
+      if (error) throw error;
+      
+      setLessons(data || []);
+      
+      // Select the first lesson if there is one
+      if (data && data.length > 0 && !selectedLesson) {
+        setSelectedLesson(data[0].id);
+        setLessonData(data[0]);
+        setEditForm({
+          title: data[0].title,
+          summary: data[0].summary || "",
+          mainText: data[0].main_text || "",
+          scripture: data[0].scripture || "",
+          scriptureReference: data[0].scripture_reference || "",
+          type: data[0].type || "normal"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading lessons:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las lecciones",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const selectLesson = (lessonId: string) => {
     const lesson = lessons.find(l => l.id === lessonId);
@@ -78,15 +140,15 @@ const AdminLessons = () => {
       setEditForm({
         title: lesson.title,
         summary: lesson.summary || "",
-        mainText: lesson.mainText || "",
+        mainText: lesson.main_text || "",
         scripture: lesson.scripture || "",
-        scriptureReference: lesson.scriptureReference || "",
+        scriptureReference: lesson.scripture_reference || "",
         type: lesson.type || "normal"
       });
     }
   };
 
-  const handleAddLesson = () => {
+  const handleAddLesson = async () => {
     if (!newLesson.title || !newLesson.summary || !newLesson.mainText) {
       toast({
         title: "Campos requeridos",
@@ -96,52 +158,88 @@ const AdminLessons = () => {
       return;
     }
 
-    const existingLessons = [...lessons];
-    const position = Math.min(Math.max(newLesson.position, 0), existingLessons.length);
-    
-    existingLessons.forEach(lesson => {
-      if (lesson.orderIndex >= position) {
-        lesson.orderIndex += 1;
+    try {
+      // Get the position based on user input
+      const position = Math.min(Math.max(newLesson.position, 0), lessons.length);
+      
+      // Insert new lesson into database
+      const { data, error } = await supabase
+        .from('lessons')
+        .insert({
+          course_id: courseId,
+          title: newLesson.title,
+          summary: newLesson.summary,
+          main_text: newLesson.mainText,
+          scripture: newLesson.scripture || null,
+          scripture_reference: newLesson.scriptureReference || null,
+          type: newLesson.type,
+          order_index: position
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Update order_index for other lessons if needed
+      if (position < lessons.length) {
+        // Get lessons that need their order_index updated
+        const lessonsToUpdate = lessons
+          .filter(lesson => lesson.order_index >= position)
+          .map(lesson => ({
+            id: lesson.id,
+            order_index: lesson.order_index + 1
+          }));
+        
+        // Update each lesson's order_index
+        for (const lesson of lessonsToUpdate) {
+          await supabase
+            .from('lessons')
+            .update({ order_index: lesson.order_index })
+            .eq('id', lesson.id);
+        }
       }
-    });
-
-    const newLessonData = {
-      id: `lesson-${Date.now()}`,
-      courseId: courseId,
-      title: newLesson.title,
-      summary: newLesson.summary,
-      mainText: newLesson.mainText,
-      scripture: newLesson.scripture,
-      scriptureReference: newLesson.scriptureReference,
-      type: newLesson.type,
-      orderIndex: position,
-      exercises: []
-    };
-
-    const updatedLessons = [...existingLessons, newLessonData];
-    
-    setLessons(updatedLessons);
-    setNewLesson({
-      title: "",
-      summary: "",
-      mainText: "",
-      scripture: "",
-      scriptureReference: "",
-      type: "normal",
-      position: updatedLessons.length
-    });
-    setIsAddingLesson(false);
-    
-    setSelectedLesson(newLessonData.id);
-    setLessonData(newLessonData);
-
-    toast({
-      title: "Lección creada",
-      description: "La lección ha sido añadida exitosamente"
-    });
+      
+      // Update the lessons count in the course
+      await supabase
+        .from('courses')
+        .update({ lessons_count: lessons.length + 1 })
+        .eq('id', courseId);
+      
+      // Refresh lesson list
+      await fetchLessons();
+      
+      // Clear form
+      setNewLesson({
+        title: "",
+        summary: "",
+        mainText: "",
+        scripture: "",
+        scriptureReference: "",
+        type: "normal",
+        position: lessons.length + 1
+      });
+      
+      setIsAddingLesson(false);
+      
+      // Select the newly created lesson
+      setSelectedLesson(data.id);
+      setLessonData(data);
+      
+      toast({
+        title: "Lección creada",
+        description: "La lección ha sido añadida exitosamente"
+      });
+    } catch (error) {
+      console.error("Error creating lesson:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear la lección",
+        variant: "destructive"
+      });
+    }
   };
 
-  const updateLessonContent = () => {
+  const updateLessonContent = async () => {
     if (!selectedLesson) return;
 
     if (!editForm.title || !editForm.summary || !editForm.mainText) {
@@ -153,59 +251,115 @@ const AdminLessons = () => {
       return;
     }
 
-    const updatedLessons = lessons.map(lesson => {
-      if (lesson.id === selectedLesson) {
-        const updatedLesson = {
-          ...lesson,
+    try {
+      const { error } = await supabase
+        .from('lessons')
+        .update({
           title: editForm.title,
           summary: editForm.summary,
-          mainText: editForm.mainText,
-          scripture: editForm.scripture,
-          scriptureReference: editForm.scriptureReference,
+          main_text: editForm.mainText,
+          scripture: editForm.scripture || null,
+          scripture_reference: editForm.scriptureReference || null,
           type: editForm.type
-        };
-        setLessonData(updatedLesson);
-        return updatedLesson;
-      }
-      return lesson;
-    });
+        })
+        .eq('id', selectedLesson);
+      
+      if (error) throw error;
+      
+      // Update local state
+      const updatedLessons = lessons.map(lesson => {
+        if (lesson.id === selectedLesson) {
+          const updatedLesson = {
+            ...lesson,
+            title: editForm.title,
+            summary: editForm.summary,
+            main_text: editForm.mainText,
+            scripture: editForm.scripture || null,
+            scripture_reference: editForm.scriptureReference || null,
+            type: editForm.type
+          };
+          setLessonData(updatedLesson);
+          return updatedLesson;
+        }
+        return lesson;
+      });
 
-    setLessons(updatedLessons);
-    setEditingLesson(null);
+      setLessons(updatedLessons);
+      setEditingLesson(null);
 
-    toast({
-      title: "Lección actualizada",
-      description: "La lección ha sido modificada exitosamente"
-    });
-  };
-
-  const handleDeleteLesson = (lessonId: string) => {
-    const updatedLessons = lessons.filter(lesson => lesson.id !== lessonId);
-    
-    const reorderedLessons = updatedLessons.map((lesson, index) => ({
-      ...lesson,
-      orderIndex: index
-    }));
-    
-    setLessons(reorderedLessons);
-    
-    if (lessonId === selectedLesson) {
-      if (reorderedLessons.length > 0) {
-        setSelectedLesson(reorderedLessons[0].id);
-        setLessonData(reorderedLessons[0]);
-      } else {
-        setSelectedLesson(null);
-        setLessonData(null);
-      }
+      toast({
+        title: "Lección actualizada",
+        description: "La lección ha sido modificada exitosamente"
+      });
+    } catch (error) {
+      console.error("Error updating lesson:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la lección",
+        variant: "destructive"
+      });
     }
-
-    toast({
-      title: "Lección eliminada",
-      description: "La lección ha sido eliminada exitosamente"
-    });
   };
 
-  const handleMoveLesson = (lessonId: string, direction: 'up' | 'down') => {
+  const handleDeleteLesson = async (lessonId: string) => {
+    try {
+      // Delete the lesson
+      const { error } = await supabase
+        .from('lessons')
+        .delete()
+        .eq('id', lessonId);
+      
+      if (error) throw error;
+      
+      // Get remaining lessons to update order
+      const remainingLessons = lessons.filter(l => l.id !== lessonId);
+      
+      // Update order_index for remaining lessons
+      for (let i = 0; i < remainingLessons.length; i++) {
+        const lesson = remainingLessons[i];
+        if (lesson.order_index !== i) {
+          await supabase
+            .from('lessons')
+            .update({ order_index: i })
+            .eq('id', lesson.id);
+        }
+      }
+      
+      // Update course lessons count
+      await supabase
+        .from('courses')
+        .update({ lessons_count: remainingLessons.length })
+        .eq('id', courseId);
+      
+      // Refresh lessons
+      await fetchLessons();
+      
+      // Clear selected lesson if it was deleted
+      if (lessonId === selectedLesson) {
+        if (remainingLessons.length > 0) {
+          setSelectedLesson(remainingLessons[0].id);
+          setLessonData(remainingLessons[0]);
+        } else {
+          setSelectedLesson(null);
+          setLessonData(null);
+        }
+      }
+
+      toast({
+        title: "Lección eliminada",
+        description: "La lección ha sido eliminada exitosamente"
+      });
+    } catch (error) {
+      console.error("Error deleting lesson:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la lección",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleMoveLesson = async (lessonId: string, direction: 'up' | 'down') => {
     const currentIndex = lessons.findIndex(lesson => lesson.id === lessonId);
     if (
       (direction === 'up' && currentIndex === 0) || 
@@ -214,17 +368,32 @@ const AdminLessons = () => {
       return;
     }
 
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    const newLessons = [...lessons];
-    const [movedLesson] = newLessons.splice(currentIndex, 1);
-    newLessons.splice(newIndex, 0, movedLesson);
-
-    const updatedLessons = newLessons.map((lesson, index) => ({
-      ...lesson,
-      orderIndex: index
-    }));
-
-    setLessons(updatedLessons);
+    try {
+      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      const lessonToMove = lessons[currentIndex];
+      const otherLesson = lessons[newIndex];
+      
+      // Swap the order_index
+      await supabase
+        .from('lessons')
+        .update({ order_index: newIndex })
+        .eq('id', lessonId);
+      
+      await supabase
+        .from('lessons')
+        .update({ order_index: currentIndex })
+        .eq('id', otherLesson.id);
+      
+      // Refresh lessons after the move
+      await fetchLessons();
+    } catch (error) {
+      console.error("Error moving lesson:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cambiar el orden de la lección",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleViewExercises = (lessonId: string) => {
@@ -248,58 +417,66 @@ const AdminLessons = () => {
       </div>
 
       <div className="space-y-2 mt-4">
-        {lessons
-          .sort((a, b) => a.orderIndex - b.orderIndex)
-          .map((lesson, index) => (
-            <div 
-              key={lesson.id} 
-              className={cn(
-                "p-3 border rounded-md cursor-pointer transition-colors",
-                selectedLesson === lesson.id ? "bg-blue-50 border-blue-300" : "hover:bg-gray-50"
-              )}
-              onClick={() => selectLesson(lesson.id)}
-            >
-              <div className="flex justify-between items-center">
-                <div className="font-medium">{index + 1}. {lesson.title}</div>
-                <div className="flex">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMoveLesson(lesson.id, 'up');
-                    }}
-                    disabled={index === 0}
-                    className="h-6 w-6"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMoveLesson(lesson.id, 'down');
-                    }}
-                    disabled={index === lessons.length - 1}
-                    className="h-6 w-6"
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="text-sm text-gray-500 truncate">{lesson.summary}</div>
-              <div className="flex gap-1 mt-1">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {lesson.type === "challenge" ? "Desafío" : "Normal"}
-                </span>
-              </div>
-            </div>
-          ))}
-        {lessons.length === 0 && !isAddingLesson && (
-          <div className="text-center py-6 text-gray-500">
-            No hay lecciones para este curso. Crea una nueva lección.
+        {isLoading ? (
+          <div className="py-8 flex justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-r-transparent"></div>
           </div>
+        ) : (
+          <>
+            {lessons
+              .sort((a, b) => a.order_index - b.order_index)
+              .map((lesson, index) => (
+                <div 
+                  key={lesson.id} 
+                  className={cn(
+                    "p-3 border rounded-md cursor-pointer transition-colors",
+                    selectedLesson === lesson.id ? "bg-blue-50 border-blue-300" : "hover:bg-gray-50"
+                  )}
+                  onClick={() => selectLesson(lesson.id)}
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="font-medium">{index + 1}. {lesson.title}</div>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveLesson(lesson.id, 'up');
+                        }}
+                        disabled={index === 0}
+                        className="h-6 w-6"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveLesson(lesson.id, 'down');
+                        }}
+                        disabled={index === lessons.length - 1}
+                        className="h-6 w-6"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500 truncate">{lesson.summary}</div>
+                  <div className="flex gap-1 mt-1">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {lesson.type === "challenge" ? "Desafío" : "Normal"}
+                    </span>
+                  </div>
+                </div>
+            ))}
+            {lessons.length === 0 && !isAddingLesson && (
+              <div className="text-center py-6 text-gray-500">
+                No hay lecciones para este curso. Crea una nueva lección.
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
