@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Form,
   FormControl,
@@ -35,7 +34,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const { signIn, signUp, loading } = useAuth();
   const navigate = useNavigate();
 
   const loginForm = useForm<LoginFormValues>({
@@ -56,14 +55,10 @@ const Auth = () => {
   });
 
   const handleLogin = async (values: LoginFormValues) => {
-    setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      });
+      const { success, error } = await signIn(values.email, values.password);
 
-      if (error) {
+      if (!success) {
         throw error;
       }
 
@@ -71,28 +66,22 @@ const Auth = () => {
         title: "Inicio de sesión exitoso",
         description: "Bienvenido a SagrApp",
       });
-      
-      navigate("/");
+
+      navigate("/home");
     } catch (error: any) {
       toast({
         title: "Error al iniciar sesión",
         description: error.message || "Inténtalo de nuevo más tarde",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleRegister = async (values: RegisterFormValues) => {
-    setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-      });
+      const { success, error } = await signUp(values.email, values.password);
 
-      if (error) {
+      if (!success) {
         throw error;
       }
 
@@ -100,7 +89,7 @@ const Auth = () => {
         title: "Registro exitoso",
         description: "Verifica tu correo electrónico para completar el registro",
       });
-      
+
       // Automáticamente cambiamos a la pantalla de inicio de sesión
       setIsLogin(true);
     } catch (error: any) {
@@ -109,22 +98,20 @@ const Auth = () => {
         description: error.message || "Inténtalo de nuevo más tarde",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-blue-50 to-white">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 border border-gray-100">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-3xl font-bold text-blue-900">
             {isLogin ? "Iniciar Sesión" : "Crear Cuenta"}
           </h1>
           <p className="text-gray-600 mt-2">
             {isLogin
-              ? "Ingresa a tu cuenta para continuar"
-              : "Registra una nueva cuenta"}
+              ? "Ingresa a tu cuenta para continuar tu viaje bíblico"
+              : "Regístrate para comenzar tu aprendizaje"}
           </p>
         </div>
 
@@ -138,28 +125,11 @@ const Auth = () => {
                   <FormItem>
                     <FormLabel>Correo Electrónico</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="correo@ejemplo.com" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={loginForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contraseña</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="Tu contraseña" 
-                        {...field} 
+                      <Input
+                        type="email"
+                        placeholder="correo@ejemplo.com"
+                        {...field}
+                        className="h-11"
                       />
                     </FormControl>
                     <FormMessage />
@@ -167,9 +137,28 @@ const Auth = () => {
                 )}
               />
 
-              <Button 
-                type="submit" 
-                className="w-full" 
+              <FormField
+                control={loginForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contraseña</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Tu contraseña"
+                        {...field}
+                        className="h-11"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full h-11 mt-4 bg-blue-600 hover:bg-blue-700"
                 disabled={loading}
               >
                 {loading ? "Ingresando..." : "Iniciar Sesión"}
@@ -186,46 +175,11 @@ const Auth = () => {
                   <FormItem>
                     <FormLabel>Correo Electrónico</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="correo@ejemplo.com" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={registerForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contraseña</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="Crea una contraseña" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={registerForm.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirmar Contraseña</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder="Confirma tu contraseña" 
-                        {...field} 
+                      <Input
+                        type="email"
+                        placeholder="correo@ejemplo.com"
+                        {...field}
+                        className="h-11"
                       />
                     </FormControl>
                     <FormMessage />
@@ -233,9 +187,47 @@ const Auth = () => {
                 )}
               />
 
-              <Button 
-                type="submit" 
-                className="w-full" 
+              <FormField
+                control={registerForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contraseña</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Crea una contraseña"
+                        {...field}
+                        className="h-11"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={registerForm.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmar Contraseña</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Confirma tu contraseña"
+                        {...field}
+                        className="h-11"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full h-11 mt-4 bg-blue-600 hover:bg-blue-700"
                 disabled={loading}
               >
                 {loading ? "Registrando..." : "Crear Cuenta"}
@@ -254,7 +246,7 @@ const Auth = () => {
               : "¿Ya tienes una cuenta? Inicia sesión"}
           </button>
         </div>
-        
+
         <div className="mt-6 text-center">
           <button
             onClick={() => navigate("/admin")}

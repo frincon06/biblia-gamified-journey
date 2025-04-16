@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -25,7 +25,7 @@ const schema = z.object({
 type AdminLoginValues = z.infer<typeof schema>;
 
 const AdminAuth = () => {
-  const [loading, setLoading] = useState(false);
+  const { adminSignIn, loading } = useAuth();
   const navigate = useNavigate();
 
   const form = useForm<AdminLoginValues>({
@@ -37,43 +37,42 @@ const AdminAuth = () => {
   });
 
   const handleAdminLogin = async (values: AdminLoginValues) => {
-    setLoading(true);
     try {
-      // Verificar si el email y la contraseña coinciden con las predefinidas
-      if (values.email === "admin@sagrapp.com" && values.password === "admin123") {
-        // Almacenar en localStorage que es un admin
-        localStorage.setItem("isAdmin", "true");
-        localStorage.setItem("adminEmail", values.email);
-        
-        toast({
-          title: "Inicio de sesión exitoso",
-          description: "Bienvenido al panel de administración",
-        });
-        
-        navigate("/admin/dashboard");
-      } else {
-        toast({
-          title: "Error de autenticación",
-          description: "Credenciales de administrador incorrectas",
-          variant: "destructive",
-        });
+      const { success, error } = await adminSignIn(values.email, values.password);
+
+      if (!success) {
+        if (error?.name === 'not_admin') {
+          toast({
+            title: "Acceso denegado",
+            description: "No tienes permisos de administrador",
+            variant: "destructive",
+          });
+        } else {
+          throw error;
+        }
+        return;
       }
+
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Bienvenido al panel de administración",
+      });
+
+      navigate("/admin/dashboard");
     } catch (error: any) {
       toast({
-        title: "Error al iniciar sesión",
-        description: error.message || "Inténtalo de nuevo más tarde",
+        title: "Error de autenticación",
+        description: error.message || "Credenciales incorrectas",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-white">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 border border-gray-100">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold">Panel de Administración</h1>
+          <h1 className="text-3xl font-bold text-slate-800">Panel de Administración</h1>
           <p className="text-gray-600 mt-2">
             Accede con tus credenciales de administrador
           </p>
@@ -88,28 +87,11 @@ const AdminAuth = () => {
                 <FormItem>
                   <FormLabel>Correo Electrónico</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="email" 
-                      placeholder="admin@sagrapp.com" 
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contraseña</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="password" 
-                      placeholder="Contraseña de administrador" 
-                      {...field} 
+                    <Input
+                      type="email"
+                      placeholder="admin@sagrapp.com"
+                      {...field}
+                      className="h-11"
                     />
                   </FormControl>
                   <FormMessage />
@@ -117,9 +99,28 @@ const AdminAuth = () => {
               )}
             />
 
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contraseña</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Contraseña de administrador"
+                      {...field}
+                      className="h-11"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button
+              type="submit"
+              className="w-full h-11 mt-4 bg-slate-800 hover:bg-slate-700"
               disabled={loading}
             >
               {loading ? "Verificando..." : "Acceder como Administrador"}

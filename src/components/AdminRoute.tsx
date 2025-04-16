@@ -1,22 +1,16 @@
-
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
 
 interface AdminRouteProps {
   children: ReactNode;
 }
 
 const AdminRoute = ({ children }: AdminRouteProps) => {
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    // Verificar si el usuario es administrador
-    const adminStatus = localStorage.getItem("isAdmin") === "true";
-    setIsAdmin(adminStatus);
-  }, []);
+  const { isAdmin, loading } = useAuth();
 
   // Mientras verifica, mostrar un spinner
-  if (isAdmin === null) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
