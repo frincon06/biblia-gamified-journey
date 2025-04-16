@@ -1,38 +1,41 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { 
-  PlusCircle, 
-  Edit, 
-  Trash2, 
-  ArrowLeft, 
-  ArrowUp, 
+import {
+  PlusCircle,
+  Edit,
+  Trash2,
+  ArrowLeft,
+  ArrowUp,
   ArrowDown,
   Check,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { 
-  Table, 
-  TableHeader, 
-  TableBody, 
-  TableRow, 
-  TableHead, 
-  TableCell 
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { mockLessons } from "@/data/mock-data";
-import { Exercise } from "@/types";
+import { Exercise, Lesson } from "@/types";
 import AdminNavBar from "@/components/admin/AdminNavBar";
+import { apiService } from "@/integrations/supabase/services";
 
 const AdminExercises = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
-  
-  const [lesson, setLesson] = useState(mockLessons.find(l => l.id === lessonId));
+
+  const [lesson, setLesson] = useState<Lesson | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [exerciseType, setExerciseType] = useState<string>("multipleChoice");
   const [newExercise, setNewExercise] = useState<any>({
@@ -54,13 +57,47 @@ const AdminExercises = () => {
   });
 
   useEffect(() => {
-    const lessonData = mockLessons.find(l => l.id === lessonId);
-    setExercises(lessonData?.exercises || []);
-  }, [lessonId]);
+    async function fetchData() {
+      if (!lessonId) return;
+
+      try {
+        setLoading(true);
+
+        // Cargar la lección
+        const lessonData = await apiService.lessons.getLessonById(lessonId);
+        if (!lessonData) {
+          toast({
+            title: "Error",
+            description: "Lección no encontrada",
+            variant: "destructive"
+          });
+          navigate("/admin/courses");
+          return;
+        }
+
+        // Cargar los ejercicios de la lección
+        const exercisesData = await apiService.exercises.getExercisesByLesson(lessonId);
+
+        setLesson(lessonData);
+        setExercises(exercisesData);
+      } catch (error) {
+        console.error("Error fetching lesson data:", error);
+        toast({
+          title: "Error",
+          description: "Hubo un problema al cargar los datos de la lección",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [lessonId, navigate]);
 
   const handleExerciseTypeChange = (type: string) => {
     setExerciseType(type);
-    
+
     if (type === "multipleChoice") {
       setNewExercise({
         type,
@@ -98,10 +135,10 @@ const AdminExercises = () => {
   };
 
   const handleAddChoice = () => {
-    const newChoices = [...newExercise.choices, { 
-      id: `${newExercise.choices.length + 1}`, 
-      text: "", 
-      isCorrect: false 
+    const newChoices = [...newExercise.choices, {
+      id: `${newExercise.choices.length + 1}`,
+      text: "",
+      isCorrect: false
     }];
     setNewExercise({ ...newExercise, choices: newChoices });
   };
@@ -120,15 +157,24 @@ const AdminExercises = () => {
     setNewExercise({ ...newExercise, choices: newChoices });
   };
 
-  const handleAddExercise = () => {
-    if (validateExercise()) {
-      const newExerciseData = {
+  const handleAddExercise = async () => {
+    if (!lessonId || !validateExercise()) return;
+
+    try {
+      setSaving(true);
+
+      // Calcular el orden del nuevo ejercicio
+      const order = exercises.length;
+
+      // Crear el ejercicio en la base de datos
+      const exerciseData = {
         ...newExercise,
-        id: `exercise-${Date.now()}`,
-        order: exercises.length
+        order
       };
 
-      setExercises([...exercises, newExerciseData]);
+      const createdExercise = await apiService.exercises.createExercise(exerciseData, lessonId);
+
+      setExercises([...exercises, createdExercise]);
       setIsAddingExercise(false);
       resetExerciseForm();
 
@@ -136,6 +182,15 @@ const AdminExercises = () => {
         title: "Ejercicio creado",
         description: "El ejercicio ha sido añadido exitosamente"
       });
+    } catch (error) {
+      console.error("Error creating exercise:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo crear el ejercicio",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -149,7 +204,7 @@ const AdminExercises = () => {
         });
         return false;
       }
-      
+
       const emptyChoices = newExercise.choices.filter((c: any) => !c.text);
       if (emptyChoices.length > 0) {
         toast({
@@ -159,7 +214,7 @@ const AdminExercises = () => {
         });
         return false;
       }
-      
+
       const hasCorrectAnswer = newExercise.choices.some((c: any) => c.isCorrect);
       if (!hasCorrectAnswer) {
         toast({
@@ -197,7 +252,7 @@ const AdminExercises = () => {
         return false;
       }
     }
-    
+
     return true;
   };
 
@@ -222,62 +277,120 @@ const AdminExercises = () => {
     });
   };
 
-  const handleSaveEdit = (exerciseId: string) => {
-    const updatedExercises = exercises.map(exercise => {
-      if (exercise.id === exerciseId) {
-        return {
-          ...editForm,
-          id: exerciseId
-        };
+  const handleSaveEdit = async (exerciseId: string) => {
+    try {
+      setSaving(true);
+
+      // Actualizar el ejercicio en la base de datos
+      await apiService.exercises.updateExercise(exerciseId, editForm);
+
+      // Actualizar el estado local
+      const updatedExercises = exercises.map(exercise => {
+        if (exercise.id === exerciseId) {
+          return {
+            ...editForm,
+            id: exerciseId
+          };
+        }
+        return exercise;
+      });
+
+      setExercises(updatedExercises);
+      setEditingExercise(null);
+
+      toast({
+        title: "Ejercicio actualizado",
+        description: "El ejercicio ha sido modificado exitosamente"
+      });
+    } catch (error) {
+      console.error("Error updating exercise:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el ejercicio",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteExercise = async (exerciseId: string) => {
+    try {
+      setSaving(true);
+
+      // Eliminar el ejercicio de la base de datos
+      await apiService.exercises.deleteExercise(exerciseId);
+
+      // Actualizar el estado local
+      const updatedExercises = exercises.filter(exercise => exercise.id !== exerciseId);
+
+      // Reordenar ejercicios
+      const reorderedExercises = updatedExercises.map((exercise, index) => ({
+        ...exercise,
+        order: index
+      }));
+
+      // Actualizar el orden en la base de datos
+      for (const exercise of reorderedExercises) {
+        await apiService.exercises.updateExercise(exercise.id, { order: exercise.order });
       }
-      return exercise;
-    });
 
-    setExercises(updatedExercises);
-    setEditingExercise(null);
+      setExercises(reorderedExercises);
 
-    toast({
-      title: "Ejercicio actualizado",
-      description: "El ejercicio ha sido modificado exitosamente"
-    });
+      toast({
+        title: "Ejercicio eliminado",
+        description: "El ejercicio ha sido eliminado exitosamente"
+      });
+    } catch (error) {
+      console.error("Error deleting exercise:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el ejercicio",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteExercise = (exerciseId: string) => {
-    const updatedExercises = exercises.filter(exercise => exercise.id !== exerciseId);
-    
-    const reorderedExercises = updatedExercises.map((exercise, index) => ({
-      ...exercise,
-      order: index
-    }));
-    
-    setExercises(reorderedExercises);
-
-    toast({
-      title: "Ejercicio eliminado",
-      description: "El ejercicio ha sido eliminado exitosamente"
-    });
-  };
-
-  const handleMoveExercise = (exerciseId: string, direction: 'up' | 'down') => {
+  const handleMoveExercise = async (exerciseId: string, direction: 'up' | 'down') => {
     const currentIndex = exercises.findIndex(exercise => exercise.id === exerciseId);
     if (
-      (direction === 'up' && currentIndex === 0) || 
+      (direction === 'up' && currentIndex === 0) ||
       (direction === 'down' && currentIndex === exercises.length - 1)
     ) {
       return;
     }
 
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    const newExercises = [...exercises];
-    const [movedExercise] = newExercises.splice(currentIndex, 1);
-    newExercises.splice(newIndex, 0, movedExercise);
+    try {
+      setSaving(true);
 
-    const updatedExercises = newExercises.map((exercise, index) => ({
-      ...exercise,
-      order: index
-    }));
+      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      const newExercises = [...exercises];
+      const [movedExercise] = newExercises.splice(currentIndex, 1);
+      newExercises.splice(newIndex, 0, movedExercise);
 
-    setExercises(updatedExercises);
+      const updatedExercises = newExercises.map((exercise, index) => ({
+        ...exercise,
+        order: index
+      }));
+
+      // Actualizar el orden en la base de datos
+      for (const exercise of updatedExercises) {
+        await apiService.exercises.updateExercise(exercise.id, { order: exercise.order });
+      }
+
+      setExercises(updatedExercises);
+    } catch (error) {
+      console.error("Error moving exercise:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cambiar el orden del ejercicio",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderExerciseForm = () => {
@@ -295,7 +408,7 @@ const AdminExercises = () => {
               placeholder="¿Cuál es la pregunta de selección múltiple?"
             />
           </div>
-          
+
           <div className="space-y-3">
             <label className="block text-sm font-medium text-gray-700">Opciones</label>
             {newExercise.choices.map((choice: any, index: number) => (
@@ -316,7 +429,7 @@ const AdminExercises = () => {
                 </Button>
               </div>
             ))}
-            
+
             <Button
               type="button"
               variant="outline"
@@ -342,7 +455,7 @@ const AdminExercises = () => {
               placeholder="Escribe una afirmación de verdadero o falso"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Respuesta correcta
@@ -380,7 +493,7 @@ const AdminExercises = () => {
               placeholder="Texto que aparece antes del espacio en blanco"
             />
           </div>
-          
+
           <div>
             <label htmlFor="correctAnswer" className="block text-sm font-medium text-gray-700 mb-1">
               Respuesta correcta
@@ -392,7 +505,7 @@ const AdminExercises = () => {
               placeholder="Palabra o frase que va en el espacio"
             />
           </div>
-          
+
           <div>
             <label htmlFor="afterText" className="block text-sm font-medium text-gray-700 mb-1">
               Texto después del espacio
@@ -421,7 +534,7 @@ const AdminExercises = () => {
               rows={3}
             />
           </div>
-          
+
           <div>
             <label htmlFor="question" className="block text-sm font-medium text-gray-700 mb-1">
               Pregunta de reflexión
@@ -436,7 +549,7 @@ const AdminExercises = () => {
         </div>
       );
     }
-    
+
     return null;
   };
 
@@ -452,18 +565,32 @@ const AdminExercises = () => {
 
   const getExerciseSummary = (exercise: Exercise): string => {
     switch (exercise.type) {
-      case "multipleChoice": 
+      case "multipleChoice":
         return exercise.question || "Sin pregunta";
-      case "trueFalse": 
+      case "trueFalse":
         return exercise.statement || "Sin afirmación";
-      case "fillBlank": 
+      case "fillBlank":
         return `${exercise.beforeText || "..."} [${exercise.correctAnswer || "___"}] ${exercise.afterText || "..."}`;
-      case "reflection": 
+      case "reflection":
         return exercise.question || "Sin pregunta de reflexión";
-      default: 
+      default:
         return "Ejercicio sin contenido";
     }
   };
+
+  if (loading) {
+    return (
+      <div>
+        <AdminNavBar />
+        <div className="container p-6 flex justify-center items-center min-h-[60vh]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p>Cargando ejercicios...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -471,7 +598,7 @@ const AdminExercises = () => {
       <div className="container p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <Link 
+            <Link
               to={`/admin/courses/${lesson?.courseId}/lessons`}
               className="flex items-center text-sm text-gray-600 mb-2"
             >
@@ -482,7 +609,10 @@ const AdminExercises = () => {
               Ejercicios de la lección: {lesson?.title}
             </h1>
           </div>
-          <Button onClick={() => setIsAddingExercise(!isAddingExercise)}>
+          <Button
+            onClick={() => setIsAddingExercise(!isAddingExercise)}
+            disabled={saving}
+          >
             {isAddingExercise ? "Cancelar" : (
               <>
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -504,28 +634,28 @@ const AdminExercises = () => {
                     Tipo de ejercicio
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    <Button 
+                    <Button
                       type="button"
                       variant={exerciseType === "multipleChoice" ? "default" : "outline"}
                       onClick={() => handleExerciseTypeChange("multipleChoice")}
                     >
                       Selección múltiple
                     </Button>
-                    <Button 
+                    <Button
                       type="button"
                       variant={exerciseType === "trueFalse" ? "default" : "outline"}
                       onClick={() => handleExerciseTypeChange("trueFalse")}
                     >
                       Verdadero o falso
                     </Button>
-                    <Button 
+                    <Button
                       type="button"
                       variant={exerciseType === "fillBlank" ? "default" : "outline"}
                       onClick={() => handleExerciseTypeChange("fillBlank")}
                     >
                       Completar
                     </Button>
-                    <Button 
+                    <Button
                       type="button"
                       variant={exerciseType === "reflection" ? "default" : "outline"}
                       onClick={() => handleExerciseTypeChange("reflection")}
@@ -534,7 +664,7 @@ const AdminExercises = () => {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div>
                   <label htmlFor="xpReward" className="block text-sm font-medium text-gray-700 mb-1">
                     Recompensa de XP
@@ -549,13 +679,22 @@ const AdminExercises = () => {
                     className="max-w-[200px]"
                   />
                 </div>
-                
+
                 {renderExerciseForm()}
               </div>
             </CardContent>
             <CardFooter>
-              <Button onClick={handleAddExercise} className="w-full">
-                Crear Ejercicio
+              <Button
+                onClick={handleAddExercise}
+                className="w-full"
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creando...
+                  </>
+                ) : "Crear Ejercicio"}
               </Button>
             </CardFooter>
           </Card>
@@ -578,20 +717,20 @@ const AdminExercises = () => {
                   <TableRow key={exercise.id}>
                     <TableCell className="w-24">
                       <div className="flex items-center space-x-1">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="icon"
                           onClick={() => handleMoveExercise(exercise.id, 'up')}
-                          disabled={exercise.order === 0}
+                          disabled={exercise.order === 0 || saving}
                         >
                           <ArrowUp className="h-4 w-4" />
                         </Button>
                         <span>{(exercise.order || 0) + 1}</span>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="icon"
                           onClick={() => handleMoveExercise(exercise.id, 'down')}
-                          disabled={(exercise.order || 0) === exercises.length - 1}
+                          disabled={(exercise.order || 0) === exercises.length - 1 || saving}
                         >
                           <ArrowDown className="h-4 w-4" />
                         </Button>
@@ -609,10 +748,20 @@ const AdminExercises = () => {
                     </TableCell>
                     <TableCell>{exercise.xpReward || 0} XP</TableCell>
                     <TableCell className="text-right flex justify-end gap-2">
-                      <Button onClick={() => handleEditExercise(exercise)} size="sm" variant="outline">
+                      <Button
+                        onClick={() => handleEditExercise(exercise)}
+                        size="sm"
+                        variant="outline"
+                        disabled={saving}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button onClick={() => handleDeleteExercise(exercise.id)} size="sm" variant="destructive">
+                      <Button
+                        onClick={() => handleDeleteExercise(exercise.id)}
+                        size="sm"
+                        variant="destructive"
+                        disabled={saving}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
