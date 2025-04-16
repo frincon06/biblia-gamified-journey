@@ -6,7 +6,8 @@ import {
   Edit, 
   Trash2, 
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +21,23 @@ import {
   TableCell 
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { mockCourses } from "@/data/mock-data";
 import { Course } from "@/types";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const AdminCourses = () => {
   const navigate = useNavigate();
-  const [courses, setCourses] = useState<Course[]>(mockCourses);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [isAddingCourse, setIsAddingCourse] = useState(false);
   const [newCourse, setNewCourse] = useState({
     title: "",
@@ -38,6 +50,21 @@ const AdminCourses = () => {
     description: "",
     coverImage: ""
   });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
+
+  // Load courses from localStorage on component mount
+  useEffect(() => {
+    const savedCourses = localStorage.getItem('adminCourses');
+    if (savedCourses) {
+      setCourses(JSON.parse(savedCourses));
+    }
+  }, []);
+
+  // Save courses to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('adminCourses', JSON.stringify(courses));
+  }, [courses]);
 
   const handleAddCourse = () => {
     if (!newCourse.title || !newCourse.description) {
@@ -49,7 +76,6 @@ const AdminCourses = () => {
       return;
     }
 
-    // En una aplicación real, esto sería una llamada a la API
     const newCourseData: Course = {
       id: `course-${Date.now()}`,
       title: newCourse.title,
@@ -68,6 +94,9 @@ const AdminCourses = () => {
       title: "Curso creado",
       description: "El curso ha sido añadido exitosamente"
     });
+    
+    // Trigger a storage event to notify other tabs/windows
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleEditCourse = (courseId: string) => {
@@ -92,7 +121,6 @@ const AdminCourses = () => {
       return;
     }
 
-    // En una aplicación real, esto sería una llamada a la API
     const updatedCourses = courses.map(course => {
       if (course.id === courseId) {
         return {
@@ -112,17 +140,54 @@ const AdminCourses = () => {
       title: "Curso actualizado",
       description: "El curso ha sido modificado exitosamente"
     });
+    
+    // Trigger a storage event to notify other tabs/windows
+    window.dispatchEvent(new Event('storage'));
   };
 
-  const handleDeleteCourse = (courseId: string) => {
-    // En una aplicación real, deberíamos mostrar una confirmación
-    const updatedCourses = courses.filter(course => course.id !== courseId);
-    setCourses(updatedCourses);
+  const handleToggleCourseStatus = (courseId: string) => {
+    const updatedCourses = courses.map(course => {
+      if (course.id === courseId) {
+        return {
+          ...course,
+          isActive: !course.isActive
+        };
+      }
+      return course;
+    });
 
+    setCourses(updatedCourses);
+    
+    toast({
+      title: "Estado actualizado",
+      description: "El estado del curso ha sido actualizado"
+    });
+    
+    // Trigger a storage event to notify other tabs/windows
+    window.dispatchEvent(new Event('storage'));
+  };
+
+  const confirmDeleteCourse = (courseId: string) => {
+    setCourseToDelete(courseId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCourse = () => {
+    if (!courseToDelete) return;
+    
+    const updatedCourses = courses.filter(course => course.id !== courseToDelete);
+    setCourses(updatedCourses);
+    
     toast({
       title: "Curso eliminado",
       description: "El curso ha sido eliminado exitosamente"
     });
+    
+    setDeleteDialogOpen(false);
+    setCourseToDelete(null);
+    
+    // Trigger a storage event to notify other tabs/windows
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleViewLessons = (courseId: string) => {
@@ -130,7 +195,7 @@ const AdminCourses = () => {
   };
 
   return (
-    <div className="container p-6">
+    <div className="container p-6 animate-fade-in">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">Gestión de Cursos</h1>
@@ -138,7 +203,8 @@ const AdminCourses = () => {
             Selecciona un curso para gestionar sus lecciones o crea uno nuevo
           </p>
         </div>
-        <Button onClick={() => setIsAddingCourse(!isAddingCourse)}>
+        <Button onClick={() => setIsAddingCourse(!isAddingCourse)} 
+          className="transition-all duration-300 hover:scale-105">
           {isAddingCourse ? "Cancelar" : (
             <>
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -149,14 +215,14 @@ const AdminCourses = () => {
       </div>
 
       {isAddingCourse && (
-        <Card className="mb-6">
+        <Card className="mb-6 animate-fade-in">
           <CardHeader>
             <CardTitle>Crear Nuevo Curso</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="title" className="block text-sm font-medium mb-1">
                   Título
                 </label>
                 <Input
@@ -167,7 +233,7 @@ const AdminCourses = () => {
                 />
               </div>
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="description" className="block text-sm font-medium mb-1">
                   Descripción
                 </label>
                 <Input
@@ -178,7 +244,7 @@ const AdminCourses = () => {
                 />
               </div>
               <div>
-                <label htmlFor="coverImage" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="coverImage" className="block text-sm font-medium mb-1">
                   URL de Imagen (opcional)
                 </label>
                 <Input
@@ -196,7 +262,7 @@ const AdminCourses = () => {
         </Card>
       )}
 
-      <Card>
+      <Card className="animate-fade-in" style={{ animationDelay: "0.1s" }}>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -204,12 +270,13 @@ const AdminCourses = () => {
                 <TableHead>Título</TableHead>
                 <TableHead>Descripción</TableHead>
                 <TableHead>Lecciones</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {courses.map((course) => (
-                <TableRow key={course.id}>
+                <TableRow key={course.id} className={!course.isActive ? 'opacity-60' : ''}>
                   <TableCell className="font-medium">
                     {editingCourse === course.id ? (
                       <Input
@@ -231,6 +298,18 @@ const AdminCourses = () => {
                     )}
                   </TableCell>
                   <TableCell>{course.lessonsCount || 0}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Switch 
+                        checked={course.isActive} 
+                        onCheckedChange={() => handleToggleCourseStatus(course.id)}
+                        id={`active-${course.id}`}
+                      />
+                      <Label htmlFor={`active-${course.id}`} className="text-sm">
+                        {course.isActive ? 'Activo' : 'Inactivo'}
+                      </Label>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right flex justify-end gap-2">
                     {editingCourse === course.id ? (
                       <Button onClick={() => handleSaveEdit(course.id)} size="sm">
@@ -241,15 +320,15 @@ const AdminCourses = () => {
                         <Button 
                           onClick={() => handleViewLessons(course.id)} 
                           size="sm" 
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-primary hover:bg-primary/90"
                         >
                           <ArrowRight className="h-4 w-4 mr-1" />
-                          Gestionar Lecciones
+                          Lecciones
                         </Button>
                         <Button onClick={() => handleEditCourse(course.id)} size="sm" variant="outline">
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button onClick={() => handleDeleteCourse(course.id)} size="sm" variant="destructive">
+                        <Button onClick={() => confirmDeleteCourse(course.id)} size="sm" variant="destructive">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </>
@@ -259,7 +338,8 @@ const AdminCourses = () => {
               ))}
               {courses.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                    <AlertCircle className="w-10 h-10 mx-auto mb-3 opacity-50" />
                     No hay cursos disponibles. Crea el primero haciendo clic en "Nuevo Curso".
                   </TableCell>
                 </TableRow>
@@ -268,6 +348,23 @@ const AdminCourses = () => {
           </Table>
         </CardContent>
       </Card>
+      
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará el curso permanentemente. No podrás recuperarlo después.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCourse} className="bg-destructive text-destructive-foreground">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

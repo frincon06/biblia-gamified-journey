@@ -3,13 +3,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Welcome from "./pages/Welcome";
 import Courses from "./pages/Courses";
 import CourseDetail from "./pages/CourseDetail";
 import LessonDetail from "./pages/LessonDetail";
 import Profile from "./pages/Profile";
+import Achievements from "./pages/Achievements";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import AdminAuth from "./pages/AdminAuth";
@@ -28,7 +29,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="min-h-screen pb-16">
+        <div className="min-h-screen pb-16 md:pb-0 md:pt-16">
           <Routes>
             {/* Rutas públicas */}
             <Route path="/" element={<Welcome />} />
@@ -36,7 +37,7 @@ const App = () => (
             <Route path="/cursos" element={<Courses />} />
             <Route path="/cursos/:courseId" element={<CourseDetail />} />
             <Route path="/cursos/:courseId/lecciones/:lessonId" element={<LessonDetail />} />
-            <Route path="/logros" element={<div className="p-6 text-center">Página de Logros en desarrollo</div>} />
+            <Route path="/logros" element={<Achievements />} />
             <Route path="/perfil" element={<Profile />} />
             <Route path="/auth" element={<Auth />} />
             

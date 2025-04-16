@@ -1,44 +1,127 @@
 
-import { useState } from "react";
-import { Award, Book, BookOpen, Calendar, Flame, Medal, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Award, Book, BookOpen, Calendar, Flame, LogOut, Medal, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { StreakCounter } from "@/components/StreakCounter";
 import { LevelBadge } from "@/components/LevelBadge";
-import { mockUser, mockCourses } from "@/data/mock-data";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { User as UserType } from "@/types";
+import { useQuery } from "@tanstack/react-query";
 
 const Profile = () => {
-  const [user, setUser] = useState(mockUser);
+  const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState<UserType | null>(null);
+  
+  // Fetch the authenticated user
+  const { isLoading, error } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      
+      if (!authData.user) {
+        navigate("/auth");
+        return null;
+      }
+      
+      // In a real app, you'd fetch the user profile from your database
+      // For now, we'll create a mock profile based on the auth user
+      const mockProfile: UserType = {
+        id: authData.user.id,
+        name: authData.user.email?.split('@')[0] || 'Usuario',
+        email: authData.user.email || '',
+        level: 3,
+        xp: 250,
+        streak: 4,
+        joinedAt: new Date(),
+        completedLessons: [],
+        completedCourses: [],
+        decisions: []
+      };
+      
+      return mockProfile;
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el perfil",
+        variant: "destructive",
+      });
+      navigate("/auth");
+    }
+  });
+
+  useEffect(() => {
+    // Set the user profile after the query completes
+    if (!isLoading && !error && userProfile === null) {
+      setUserProfile({
+        id: "user-1",
+        name: "Usuario",
+        email: "usuario@ejemplo.com",
+        level: 3,
+        xp: 250,
+        streak: 4,
+        joinedAt: new Date(),
+        completedLessons: [],
+        completedCourses: [],
+        decisions: []
+      });
+    }
+  }, [isLoading, error, userProfile]);
+  
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast({
+      title: "Sesión cerrada",
+      description: "Has cerrado sesión correctamente"
+    });
+    navigate("/");
+  };
+  
+  if (isLoading || !userProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
   
   // Calcular XP para el siguiente nivel
-  const xpForNextLevel = user.level * 100;
-  const xpProgress = Math.min(100, (user.xp / xpForNextLevel) * 100);
+  const xpForNextLevel = userProfile.level * 100;
+  const xpProgress = Math.min(100, (userProfile.xp / xpForNextLevel) * 100);
   
   // Calcular estadísticas
-  const coursesStarted = mockCourses.length;
-  const coursesCompleted = user.completedCourses.length;
-  const lessonsCompleted = user.completedLessons.length;
+  const lessonsCompleted = userProfile.completedLessons.length;
+  const coursesCompleted = userProfile.completedCourses.length;
+  const coursesStarted = 2; // This would normally be calculated from real data
   
   return (
-    <div className="container max-w-md mx-auto px-4 pt-6 pb-20">
-      <header className="mb-6">
+    <div className="container max-w-4xl mx-auto px-4 pt-16 pb-20 md:pt-24 md:pb-10 animate-fade-in">
+      <header className="mb-6 flex justify-between items-start">
         <h1 className="text-2xl font-bold">Mi perfil</h1>
+        <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+          <LogOut className="w-4 h-4" />
+          Cerrar sesión
+        </Button>
       </header>
       
       {/* Perfil del usuario */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex items-center">
-            <div className="w-16 h-16 rounded-full bg-sagr-blue/10 flex items-center justify-center mr-4">
-              <User className="w-8 h-8 text-sagr-blue" />
+      <Card className="mb-6 hover:shadow-lg transition-shadow duration-300 animate-fade-in">
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row md:items-center">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mr-6 mb-4 md:mb-0">
+              <User className="w-10 h-10 text-primary" />
             </div>
-            <div>
-              <h2 className="text-xl font-semibold">{user.name}</h2>
-              <p className="text-sagr-gray-600">{user.email}</p>
-              <div className="mt-1 flex items-center gap-2">
-                <LevelBadge level={user.level} />
-                <StreakCounter days={user.streak} className="!bg-orange-50" />
+            <div className="flex-1">
+              <h2 className="text-2xl font-semibold">{userProfile.name}</h2>
+              <p className="text-muted-foreground">{userProfile.email}</p>
+              <div className="mt-2 flex items-center gap-3 flex-wrap">
+                <LevelBadge level={userProfile.level} />
+                <StreakCounter days={userProfile.streak} className="!bg-orange-900/20" />
               </div>
             </div>
           </div>
@@ -46,82 +129,90 @@ const Profile = () => {
       </Card>
       
       {/* Progreso del nivel */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
+      <Card className="mb-6 hover:shadow-lg transition-shadow duration-300 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+        <CardContent className="p-6">
           <div className="flex justify-between items-center mb-2">
             <h3 className="font-medium flex items-center gap-2">
-              <Award className="w-5 h-5 text-sagr-gold" />
+              <Award className="w-5 h-5 text-secondary" />
               Progreso del nivel
             </h3>
-            <span className="text-sm text-sagr-gray-600">
-              {user.xp}/{xpForNextLevel} XP
+            <span className="text-sm text-muted-foreground">
+              {userProfile.xp}/{xpForNextLevel} XP
             </span>
           </div>
           
           <Progress value={xpProgress} className="h-2 mb-2" />
           
-          <div className="text-xs text-sagr-gray-600 flex justify-between">
-            <span>Nivel {user.level}</span>
-            <span>Nivel {user.level + 1}</span>
+          <div className="text-xs text-muted-foreground flex justify-between">
+            <span>Nivel {userProfile.level}</span>
+            <span>Nivel {userProfile.level + 1}</span>
           </div>
         </CardContent>
       </Card>
       
       {/* Estadísticas */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <h3 className="font-medium mb-4">Mis estadísticas</h3>
+      <Card className="mb-6 hover:shadow-lg transition-shadow duration-300 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+        <CardContent className="p-6">
+          <h3 className="font-medium mb-4 flex items-center gap-2">
+            <Medal className="w-5 h-5 text-primary" />
+            Mis estadísticas
+          </h3>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col items-center p-3 bg-sagr-gray-100 rounded-lg">
-              <Flame className="w-6 h-6 text-streak mb-1" />
-              <span className="text-xl font-semibold">{user.streak}</span>
-              <span className="text-xs text-sagr-gray-600">Días de racha</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex flex-col items-center p-4 bg-card rounded-lg border border-border">
+              <Flame className="w-8 h-8 text-orange-500 mb-2 animate-pulse-slow" />
+              <span className="text-2xl font-semibold">{userProfile.streak}</span>
+              <span className="text-xs text-muted-foreground">Días de racha</span>
             </div>
             
-            <div className="flex flex-col items-center p-3 bg-sagr-gray-100 rounded-lg">
-              <Book className="w-6 h-6 text-sagr-blue mb-1" />
-              <span className="text-xl font-semibold">{lessonsCompleted}</span>
-              <span className="text-xs text-sagr-gray-600">Lecciones completadas</span>
+            <div className="flex flex-col items-center p-4 bg-card rounded-lg border border-border">
+              <Book className="w-8 h-8 text-primary mb-2" />
+              <span className="text-2xl font-semibold">{lessonsCompleted}</span>
+              <span className="text-xs text-muted-foreground">Lecciones completadas</span>
             </div>
             
-            <div className="flex flex-col items-center p-3 bg-sagr-gray-100 rounded-lg">
-              <BookOpen className="w-6 h-6 text-sagr-blue mb-1" />
-              <span className="text-xl font-semibold">{coursesStarted}</span>
-              <span className="text-xs text-sagr-gray-600">Cursos iniciados</span>
+            <div className="flex flex-col items-center p-4 bg-card rounded-lg border border-border">
+              <BookOpen className="w-8 h-8 text-primary mb-2" />
+              <span className="text-2xl font-semibold">{coursesStarted}</span>
+              <span className="text-xs text-muted-foreground">Cursos iniciados</span>
             </div>
             
-            <div className="flex flex-col items-center p-3 bg-sagr-gray-100 rounded-lg">
-              <Medal className="w-6 h-6 text-sagr-gold mb-1" />
-              <span className="text-xl font-semibold">{coursesCompleted}</span>
-              <span className="text-xs text-sagr-gray-600">Cursos completados</span>
+            <div className="flex flex-col items-center p-4 bg-card rounded-lg border border-border">
+              <Medal className="w-8 h-8 text-secondary mb-2" />
+              <span className="text-2xl font-semibold">{coursesCompleted}</span>
+              <span className="text-xs text-muted-foreground">Cursos completados</span>
             </div>
           </div>
         </CardContent>
       </Card>
       
       {/* Últimas decisiones */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="font-medium mb-4">Mis decisiones espirituales</h3>
+      <Card className="hover:shadow-lg transition-shadow duration-300 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+        <CardContent className="p-6">
+          <h3 className="font-medium mb-4 flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-primary" />
+            Mis decisiones espirituales
+          </h3>
           
-          {user.decisions.length > 0 ? (
+          {userProfile.decisions && userProfile.decisions.length > 0 ? (
             <div className="space-y-3">
-              {user.decisions.map((decision, index) => (
-                <div key={index} className="bg-sagr-gray-100 p-3 rounded-lg">
+              {userProfile.decisions.map((decision, index) => (
+                <div key={index} className="bg-accent/10 p-4 rounded-lg staggered-item">
                   <p className="text-sm font-medium">
                     Me comprometo a leer la Biblia diariamente
                   </p>
-                  <p className="text-xs text-sagr-gray-600 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {new Date(decision.timestamp).toLocaleDateString()}
                   </p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-center text-sagr-gray-500 py-4">
-              Aún no has tomado decisiones espirituales
-            </p>
+            <div className="text-center py-8 text-muted-foreground bg-accent/5 rounded-lg border border-border">
+              <Calendar className="w-10 h-10 mx-auto mb-2 opacity-50" />
+              <p>Aún no has tomado decisiones espirituales</p>
+              <p className="text-sm mt-2">Completa lecciones para registrar tus compromisos</p>
+            </div>
           )}
         </CardContent>
       </Card>
