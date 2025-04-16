@@ -94,13 +94,13 @@ const AdminNavBar = () => {
   );
 };
 
-// Adding this component to avoid the React warning about nesting anchor tags
+// Adding this component to fix the type error
 const NavigationMenuLink = ({ children, asChild, ...props }) => {
   if (asChild) {
     return children;
   }
   return (
-    <Link {...props}>
+    <Link to="/" {...props}>
       {children}
     </Link>
   );

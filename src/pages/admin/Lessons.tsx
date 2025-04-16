@@ -162,13 +162,14 @@ const AdminLessons = () => {
       // Get the position based on user input
       const position = Math.min(Math.max(newLesson.position, 0), lessons.length);
       
-      // Insert new lesson into database
+      // Insert new lesson into database with the required description field
       const { data, error } = await supabase
         .from('lessons')
         .insert({
           course_id: courseId,
           title: newLesson.title,
           summary: newLesson.summary,
+          description: newLesson.summary, // Use summary as description to satisfy the required field
           main_text: newLesson.mainText,
           scripture: newLesson.scripture || null,
           scripture_reference: newLesson.scriptureReference || null,
