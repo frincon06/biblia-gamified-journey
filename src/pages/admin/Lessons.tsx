@@ -1,46 +1,20 @@
-
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { 
-  PlusCircle, 
-  Edit, 
-  Trash2, 
-  ArrowLeft, 
-  ArrowRight, 
-  ArrowUp, 
-  ArrowDown,
-  BookOpen,
-  Save
-} from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { PlusCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { 
-  Table, 
-  TableHeader, 
-  TableBody, 
-  TableRow, 
-  TableHead, 
-  TableCell 
-} from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Lesson } from "@/types";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import AdminNavBar from "@/components/admin/AdminNavBar";
 import { supabase } from "@/integrations/supabase/client";
 
 const AdminLessons = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
-  
-  const [course, setCourse] = useState<any>(null);
-  const [lessons, setLessons] = useState<any[]>([]);
-  const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
-  const [lessonData, setLessonData] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<string>("overview");
-  const [isAddingLesson, setIsAddingLesson] = useState(false);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [newLesson, setNewLesson] = useState({
     title: "",
     summary: "",
@@ -48,79 +22,54 @@ const AdminLessons = () => {
     scripture: "",
     scriptureReference: "",
     type: "normal",
-    position: 0 // Position for new lesson
+    position: lessons.length
   });
-  const [editingLesson, setEditingLesson] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({
-    title: "",
-    summary: "",
-    mainText: "",
-    scripture: "",
-    scriptureReference: "",
-    type: "normal"
-  });
+  const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (courseId) {
-      fetchCourse();
-      fetchLessons();
-    }
-  }, [courseId]);
-
-  const fetchCourse = async () => {
-    if (!courseId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('id', courseId)
-        .single();
-      
-      if (error) throw error;
-      
-      setCourse(data);
-    } catch (error) {
-      console.error("Error loading course:", error);
+    if (!courseId) {
       toast({
         title: "Error",
-        description: "No se pudo cargar el curso",
+        description: "ID del curso no válido",
         variant: "destructive"
       });
+      return;
     }
-  };
+    fetchLessons();
+  }, [courseId]);
 
   const fetchLessons = async () => {
-    if (!courseId) return;
-    
-    setIsLoading(true);
     try {
+      setIsLoading(true);
       const { data, error } = await supabase
         .from('lessons')
         .select('*')
         .eq('course_id', courseId)
         .order('order_index', { ascending: true });
-      
-      if (error) throw error;
-      
-      setLessons(data || []);
-      
-      // Select the first lesson if there is one
-      if (data && data.length > 0 && !selectedLesson) {
-        setSelectedLesson(data[0].id);
-        setLessonData(data[0]);
-        setEditForm({
-          title: data[0].title,
-          summary: data[0].summary || "",
-          mainText: data[0].main_text || "",
-          scripture: data[0].scripture || "",
-          scriptureReference: data[0].scripture_reference || "",
-          type: data[0].type || "normal"
-        });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        const formattedLessons: Lesson[] = data.map(lesson => ({
+          id: lesson.id,
+          title: lesson.title,
+          summary: lesson.summary,
+          description: lesson.description,
+          mainText: lesson.main_text,
+          scripture: lesson.scripture || "",
+          scriptureReference: lesson.scripture_reference || "",
+          type: lesson.type || "normal",
+          exercisesCount: 0,
+          completed: false,
+          order: lesson.order_index
+        }));
+        setLessons(formattedLessons);
       }
     } catch (error) {
-      console.error("Error loading lessons:", error);
+      console.error("Error fetching lessons:", error);
       toast({
         title: "Error",
         description: "No se pudieron cargar las lecciones",
@@ -131,23 +80,7 @@ const AdminLessons = () => {
     }
   };
 
-  const selectLesson = (lessonId: string) => {
-    const lesson = lessons.find(l => l.id === lessonId);
-    if (lesson) {
-      setSelectedLesson(lessonId);
-      setLessonData(lesson);
-      setActiveTab("overview");
-      setEditForm({
-        title: lesson.title,
-        summary: lesson.summary || "",
-        mainText: lesson.main_text || "",
-        scripture: lesson.scripture || "",
-        scriptureReference: lesson.scripture_reference || "",
-        type: lesson.type || "normal"
-      });
-    }
-  };
-
+  // Handle creating a new lesson
   const handleAddLesson = async () => {
     if (!newLesson.title || !newLesson.summary || !newLesson.mainText) {
       toast({
@@ -157,8 +90,10 @@ const AdminLessons = () => {
       });
       return;
     }
-
+    
     try {
+      setIsCreating(false);
+      
       // Get the position based on user input
       const position = Math.min(Math.max(newLesson.position, 0), lessons.length);
       
@@ -178,220 +113,52 @@ const AdminLessons = () => {
         })
         .select()
         .single();
-      
-      if (error) throw error;
-      
-      // Update order_index for other lessons if needed
-      if (position < lessons.length) {
-        // Get lessons that need their order_index updated
-        const lessonsToUpdate = lessons
-          .filter(lesson => lesson.order_index >= position)
-          .map(lesson => ({
-            id: lesson.id,
-            order_index: lesson.order_index + 1
-          }));
-        
-        // Update each lesson's order_index
-        for (const lesson of lessonsToUpdate) {
-          await supabase
-            .from('lessons')
-            .update({ order_index: lesson.order_index })
-            .eq('id', lesson.id);
-        }
+
+      if (error) {
+        console.error("Error adding lesson:", error);
+        throw error;
       }
-      
-      // Update the lessons count in the course
-      await supabase
-        .from('courses')
-        .update({ lessons_count: lessons.length + 1 })
-        .eq('id', courseId);
-      
-      // Refresh lesson list
-      await fetchLessons();
-      
-      // Clear form
-      setNewLesson({
-        title: "",
-        summary: "",
-        mainText: "",
-        scripture: "",
-        scriptureReference: "",
-        type: "normal",
-        position: lessons.length + 1
-      });
-      
-      setIsAddingLesson(false);
-      
-      // Select the newly created lesson
-      setSelectedLesson(data.id);
-      setLessonData(data);
-      
-      toast({
-        title: "Lección creada",
-        description: "La lección ha sido añadida exitosamente"
-      });
+
+      if (data) {
+        // Format lesson for React state
+        const formattedLesson: Lesson = {
+          id: data.id,
+          title: data.title,
+          summary: data.summary,
+          description: data.description,
+          mainText: data.main_text,
+          scripture: data.scripture || "",
+          scriptureReference: data.scripture_reference || "",
+          type: data.type || "normal",
+          exercisesCount: 0,
+          completed: false,
+          order: data.order_index
+        };
+        
+        toast({
+          title: "Lección creada",
+          description: "La lección ha sido creada exitosamente"
+        });
+        
+        // Update lessons list
+        fetchLessons();
+        
+        // Reset form state
+        setNewLesson({
+          title: "",
+          summary: "",
+          mainText: "",
+          scripture: "",
+          scriptureReference: "",
+          type: "normal",
+          position: lessons.length  // Default to end of list
+        });
+      }
     } catch (error) {
       console.error("Error creating lesson:", error);
       toast({
-        title: "Error",
+        title: "Error al crear la lección",
         description: "No se pudo crear la lección",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const updateLessonContent = async () => {
-    if (!selectedLesson) return;
-
-    if (!editForm.title || !editForm.summary || !editForm.mainText) {
-      toast({
-        title: "Campos requeridos",
-        description: "El título, resumen y texto principal son obligatorios",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('lessons')
-        .update({
-          title: editForm.title,
-          summary: editForm.summary,
-          main_text: editForm.mainText,
-          scripture: editForm.scripture || null,
-          scripture_reference: editForm.scriptureReference || null,
-          type: editForm.type
-        })
-        .eq('id', selectedLesson);
-      
-      if (error) throw error;
-      
-      // Update local state
-      const updatedLessons = lessons.map(lesson => {
-        if (lesson.id === selectedLesson) {
-          const updatedLesson = {
-            ...lesson,
-            title: editForm.title,
-            summary: editForm.summary,
-            main_text: editForm.mainText,
-            scripture: editForm.scripture || null,
-            scripture_reference: editForm.scriptureReference || null,
-            type: editForm.type
-          };
-          setLessonData(updatedLesson);
-          return updatedLesson;
-        }
-        return lesson;
-      });
-
-      setLessons(updatedLessons);
-      setEditingLesson(null);
-
-      toast({
-        title: "Lección actualizada",
-        description: "La lección ha sido modificada exitosamente"
-      });
-    } catch (error) {
-      console.error("Error updating lesson:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar la lección",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleDeleteLesson = async (lessonId: string) => {
-    try {
-      // Delete the lesson
-      const { error } = await supabase
-        .from('lessons')
-        .delete()
-        .eq('id', lessonId);
-      
-      if (error) throw error;
-      
-      // Get remaining lessons to update order
-      const remainingLessons = lessons.filter(l => l.id !== lessonId);
-      
-      // Update order_index for remaining lessons
-      for (let i = 0; i < remainingLessons.length; i++) {
-        const lesson = remainingLessons[i];
-        if (lesson.order_index !== i) {
-          await supabase
-            .from('lessons')
-            .update({ order_index: i })
-            .eq('id', lesson.id);
-        }
-      }
-      
-      // Update course lessons count
-      await supabase
-        .from('courses')
-        .update({ lessons_count: remainingLessons.length })
-        .eq('id', courseId);
-      
-      // Refresh lessons
-      await fetchLessons();
-      
-      // Clear selected lesson if it was deleted
-      if (lessonId === selectedLesson) {
-        if (remainingLessons.length > 0) {
-          setSelectedLesson(remainingLessons[0].id);
-          setLessonData(remainingLessons[0]);
-        } else {
-          setSelectedLesson(null);
-          setLessonData(null);
-        }
-      }
-
-      toast({
-        title: "Lección eliminada",
-        description: "La lección ha sido eliminada exitosamente"
-      });
-    } catch (error) {
-      console.error("Error deleting lesson:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar la lección",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleMoveLesson = async (lessonId: string, direction: 'up' | 'down') => {
-    const currentIndex = lessons.findIndex(lesson => lesson.id === lessonId);
-    if (
-      (direction === 'up' && currentIndex === 0) || 
-      (direction === 'down' && currentIndex === lessons.length - 1)
-    ) {
-      return;
-    }
-
-    try {
-      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-      const lessonToMove = lessons[currentIndex];
-      const otherLesson = lessons[newIndex];
-      
-      // Swap the order_index
-      await supabase
-        .from('lessons')
-        .update({ order_index: newIndex })
-        .eq('id', lessonId);
-      
-      await supabase
-        .from('lessons')
-        .update({ order_index: currentIndex })
-        .eq('id', otherLesson.id);
-      
-      // Refresh lessons after the move
-      await fetchLessons();
-    } catch (error) {
-      console.error("Error moving lesson:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo cambiar el orden de la lección",
         variant: "destructive"
       });
     }
@@ -401,414 +168,159 @@ const AdminLessons = () => {
     navigate(`/admin/lessons/${lessonId}/exercises`);
   };
 
-  const renderLessonsList = () => (
-    <div className="w-1/4 pr-6 border-r">
-      <div className="mb-4 flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Lecciones del Curso</h2>
-        <Button 
-          onClick={() => {
-            setIsAddingLesson(true);
-            setSelectedLesson(null);
-            setLessonData(null);
-          }} 
-          size="sm"
-        >
-          <PlusCircle className="mr-2 h-4 w-4" /> Nueva Lección
-        </Button>
-      </div>
+  return (
+    <div className="animate-fade-in">
+      <AdminNavBar />
 
-      <div className="space-y-2 mt-4">
-        {isLoading ? (
-          <div className="py-8 flex justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-r-transparent"></div>
+      <div className="container p-6">
+        <Button onClick={() => navigate("/admin/courses")} variant="ghost" className="mb-4">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Volver a Cursos
+        </Button>
+
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">Lecciones del Curso</h1>
+            <p className="text-muted-foreground mt-1">
+              Gestiona las lecciones de este curso
+            </p>
           </div>
-        ) : (
-          <>
-            {lessons
-              .sort((a, b) => a.order_index - b.order_index)
-              .map((lesson, index) => (
-                <div 
-                  key={lesson.id} 
-                  className={cn(
-                    "p-3 border rounded-md cursor-pointer transition-colors",
-                    selectedLesson === lesson.id ? "bg-blue-50 border-blue-300" : "hover:bg-gray-50"
-                  )}
-                  onClick={() => selectLesson(lesson.id)}
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="font-medium">{index + 1}. {lesson.title}</div>
-                    <div className="flex">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMoveLesson(lesson.id, 'up');
-                        }}
-                        disabled={index === 0}
-                        className="h-6 w-6"
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMoveLesson(lesson.id, 'down');
-                        }}
-                        disabled={index === lessons.length - 1}
-                        className="h-6 w-6"
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="text-sm text-gray-500 truncate">{lesson.summary}</div>
-                  <div className="flex gap-1 mt-1">
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {lesson.type === "challenge" ? "Desafío" : "Normal"}
-                    </span>
-                  </div>
+          <Button onClick={() => setIsCreating(!isCreating)} className="transition-all duration-300 hover:scale-105">
+            {isCreating ? "Cancelar" : (
+              <>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nueva Lección
+              </>
+            )}
+          </Button>
+        </div>
+
+        {isCreating && (
+          <Card className="mb-6 animate-fade-in">
+            <CardContent className="p-6">
+              <div className="grid gap-4">
+                <div>
+                  <Label htmlFor="title">Título</Label>
+                  <Input
+                    id="title"
+                    value={newLesson.title}
+                    onChange={(e) => setNewLesson({ ...newLesson, title: e.target.value })}
+                  />
                 </div>
-            ))}
-            {lessons.length === 0 && !isAddingLesson && (
-              <div className="text-center py-6 text-gray-500">
-                No hay lecciones para este curso. Crea una nueva lección.
+                <div>
+                  <Label htmlFor="summary">Resumen</Label>
+                  <Input
+                    id="summary"
+                    value={newLesson.summary}
+                    onChange={(e) => setNewLesson({ ...newLesson, summary: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mainText">Texto Principal</Label>
+                  <Input
+                    id="mainText"
+                    value={newLesson.mainText}
+                    onChange={(e) => setNewLesson({ ...newLesson, mainText: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="scripture">Escritura</Label>
+                  <Input
+                    id="scripture"
+                    value={newLesson.scripture}
+                    onChange={(e) => setNewLesson({ ...newLesson, scripture: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="scriptureReference">Referencia de Escritura</Label>
+                  <Input
+                    id="scriptureReference"
+                    value={newLesson.scriptureReference}
+                    onChange={(e) => setNewLesson({ ...newLesson, scriptureReference: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="type">Tipo</Label>
+                  <Select onValueChange={(value) => setNewLesson({ ...newLesson, type: value })}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecciona un tipo" defaultValue={newLesson.type} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="decision">Decisión</SelectItem>
+                      <SelectItem value="exercise">Ejercicio</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="position">Posición</Label>
+                  <Input
+                    type="number"
+                    id="position"
+                    value={newLesson.position}
+                    onChange={(e) => setNewLesson({
+                      ...newLesson,
+                      position: parseInt(e.target.value) || 0
+                    })}
+                  />
+                </div>
+                <Button onClick={handleAddLesson}>Crear Lección</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="animate-fade-in" style={{ animationDelay: "0.1s" }}>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="py-12 text-center">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+                <p className="mt-2">Cargando lecciones...</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Título
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Resumen
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tipo
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {lessons.map((lesson) => (
+                      <tr key={lesson.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {lesson.title}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {lesson.summary}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {lesson.type}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <Button onClick={() => handleViewExercises(lesson.id)} size="sm">
+                            Ver Ejercicios
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderCreateLessonForm = () => (
-    <Card className="w-3/4">
-      <CardHeader>
-        <CardTitle>Crear Nueva Lección</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                Título
-              </label>
-              <Input
-                id="title"
-                value={newLesson.title}
-                onChange={(e) => setNewLesson({ ...newLesson, title: e.target.value })}
-                placeholder="Título de la lección"
-              />
-            </div>
-            <div>
-              <label htmlFor="position" className="block text-sm font-medium text-gray-700 mb-1">
-                Posición en el curso
-              </label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="position"
-                  type="number"
-                  min={1}
-                  max={lessons.length + 1}
-                  value={newLesson.position + 1}
-                  onChange={(e) => setNewLesson({ ...newLesson, position: Math.max(0, parseInt(e.target.value) - 1 || 0) })}
-                  className="w-20"
-                />
-                <span className="text-sm text-gray-500">de {lessons.length + 1}</span>
-              </div>
-            </div>
-          </div>
-          <div>
-            <label htmlFor="summary" className="block text-sm font-medium text-gray-700 mb-1">
-              Resumen
-            </label>
-            <Input
-              id="summary"
-              value={newLesson.summary}
-              onChange={(e) => setNewLesson({ ...newLesson, summary: e.target.value })}
-              placeholder="Breve resumen de la lección"
-            />
-          </div>
-          <div>
-            <label htmlFor="mainText" className="block text-sm font-medium text-gray-700 mb-1">
-              Texto Principal
-            </label>
-            <Textarea
-              id="mainText"
-              value={newLesson.mainText}
-              onChange={(e) => setNewLesson({ ...newLesson, mainText: e.target.value })}
-              placeholder="Contenido principal de la lección"
-              rows={6}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="scripture" className="block text-sm font-medium text-gray-700 mb-1">
-                Versículo (opcional)
-              </label>
-              <Textarea
-                id="scripture"
-                value={newLesson.scripture}
-                onChange={(e) => setNewLesson({ ...newLesson, scripture: e.target.value })}
-                placeholder="Pasaje bíblico relacionado"
-                rows={3}
-              />
-            </div>
-            <div>
-              <label htmlFor="scriptureReference" className="block text-sm font-medium text-gray-700 mb-1">
-                Referencia Bíblica (opcional)
-              </label>
-              <Input
-                id="scriptureReference"
-                value={newLesson.scriptureReference}
-                onChange={(e) => setNewLesson({ ...newLesson, scriptureReference: e.target.value })}
-                placeholder="Ej. Juan 3:16"
-              />
-              <div className="mt-4">
-                <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Lección
-                </label>
-                <select
-                  id="type"
-                  value={newLesson.type}
-                  onChange={(e) => setNewLesson({ ...newLesson, type: e.target.value })}
-                  className="block w-full rounded-md border-gray-300 shadow-sm py-2 px-3"
-                >
-                  <option value="normal">Normal</option>
-                  <option value="challenge">Desafío</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div className="pt-4 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => {
-              setIsAddingLesson(false);
-              if (lessons.length > 0) {
-                selectLesson(lessons[0].id);
-              }
-            }}>
-              Cancelar
-            </Button>
-            <Button onClick={handleAddLesson}>
-              Crear Lección
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const renderLessonDetail = () => {
-    if (!lessonData) return null;
-
-    return (
-      <div className="w-3/4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-4 grid w-full grid-cols-3">
-            <TabsTrigger value="overview">Información General</TabsTrigger>
-            <TabsTrigger value="content">Contenido Pedagógico</TabsTrigger>
-            <TabsTrigger value="exercises">Ejercicios ({lessonData.exercises?.length || 0})</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="overview" className="mt-0">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Información de la lección</CardTitle>
-                  <Button onClick={updateLessonContent}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Guardar Cambios
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700 mb-1">
-                      Título
-                    </label>
-                    <Input
-                      id="edit-title"
-                      value={editForm.title}
-                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="edit-summary" className="block text-sm font-medium text-gray-700 mb-1">
-                      Resumen
-                    </label>
-                    <Input
-                      id="edit-summary"
-                      value={editForm.summary}
-                      onChange={(e) => setEditForm({ ...editForm, summary: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="edit-type" className="block text-sm font-medium text-gray-700 mb-1">
-                      Tipo de Lección
-                    </label>
-                    <select
-                      id="edit-type"
-                      value={editForm.type}
-                      onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
-                      className="block w-full rounded-md border-gray-300 shadow-sm py-2 px-3"
-                    >
-                      <option value="normal">Normal</option>
-                      <option value="challenge">Desafío</option>
-                    </select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="content" className="mt-0">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Contenido de la lección</CardTitle>
-                  <Button onClick={updateLessonContent}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Guardar Cambios
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="edit-mainText" className="block text-sm font-medium text-gray-700 mb-1">
-                      Texto Principal
-                    </label>
-                    <Textarea
-                      id="edit-mainText"
-                      value={editForm.mainText}
-                      onChange={(e) => setEditForm({ ...editForm, mainText: e.target.value })}
-                      rows={8}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="edit-scripture" className="block text-sm font-medium text-gray-700 mb-1">
-                        Versículo (opcional)
-                      </label>
-                      <Textarea
-                        id="edit-scripture"
-                        value={editForm.scripture}
-                        onChange={(e) => setEditForm({ ...editForm, scripture: e.target.value })}
-                        rows={3}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="edit-scriptureReference" className="block text-sm font-medium text-gray-700 mb-1">
-                        Referencia Bíblica (opcional)
-                      </label>
-                      <Input
-                        id="edit-scriptureReference"
-                        value={editForm.scriptureReference}
-                        onChange={(e) => setEditForm({ ...editForm, scriptureReference: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="exercises" className="mt-0">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Ejercicios y Actividades</CardTitle>
-                  <Button onClick={() => handleViewExercises(lessonData.id)}>
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Gestionar Ejercicios
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {lessonData.exercises && lessonData.exercises.length > 0 ? (
-                  <div className="space-y-4">
-                    {lessonData.exercises.map((exercise: any, index: number) => (
-                      <div key={exercise.id} className="border p-3 rounded-md">
-                        <div className="flex justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md">
-                              {index + 1}
-                            </span>
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
-                              {exercise.type === "multipleChoice" && "Selección múltiple"}
-                              {exercise.type === "trueFalse" && "Verdadero o falso"}
-                              {exercise.type === "fillBlank" && "Completar"}
-                              {exercise.type === "reflection" && "Reflexión"}
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {exercise.xpReward || 0} XP
-                          </div>
-                        </div>
-                        <div className="mt-2">
-                          {exercise.question && <div className="font-medium">{exercise.question}</div>}
-                          {exercise.statement && <div className="font-medium">{exercise.statement}</div>}
-                          {exercise.beforeText && (
-                            <div>
-                              {exercise.beforeText} <span className="bg-yellow-100 px-1">___</span> {exercise.afterText}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-gray-500">
-                    No hay ejercicios para esta lección. Haz clic en "Gestionar Ejercicios" para añadir nuevos.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-        
-        <div className="flex justify-between mt-6">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate(`/admin/courses`)}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Cursos
-          </Button>
-          <Button 
-            variant="destructive"
-            onClick={() => handleDeleteLesson(lessonData.id)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" /> Eliminar Lección
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div>
-      <AdminNavBar />
-      <div className="container p-6">
-        <div className="mb-6">
-          <Link 
-            to="/admin/courses" 
-            className="flex items-center text-sm text-gray-600 mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Volver a cursos
-          </Link>
-          <h1 className="text-2xl font-bold">
-            Lecciones del curso: {course?.title}
-          </h1>
-        </div>
-
-        <div className="flex gap-6">
-          {renderLessonsList()}
-          {isAddingLesson ? renderCreateLessonForm() : renderLessonDetail()}
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -95,7 +95,7 @@ const AdminNavBar = () => {
 };
 
 // Adding this component to fix the type error
-const NavigationMenuLink = ({ children, asChild, ...props }) => {
+const NavigationMenuLink = ({ children, asChild, ...props }: { children: React.ReactNode, asChild?: boolean, [key: string]: any }) => {
   if (asChild) {
     return children;
   }

@@ -32,16 +32,19 @@ const AdminCourses = () => {
   const fetchCourses = async () => {
     try {
       setIsLoading(true);
+      console.log("Fetching courses...");
       const { data, error } = await supabase
         .from('courses')
         .select('*')
         .order('order_index', { ascending: true });
 
       if (error) {
+        console.error("Error fetching courses:", error);
         throw error;
       }
 
       if (data) {
+        console.log("Courses fetched:", data);
         // Map database fields to our Course type
         const formattedCourses: Course[] = data.map(course => ({
           id: course.id,
@@ -71,6 +74,11 @@ const AdminCourses = () => {
     try {
       // Calculate the next order index
       const nextOrderIndex = courses.length;
+      
+      console.log("Adding course:", { 
+        ...newCourse, 
+        order_index: nextOrderIndex 
+      });
 
       // Insert the new course into Supabase
       const { data, error } = await supabase
@@ -87,10 +95,12 @@ const AdminCourses = () => {
         .single();
 
       if (error) {
+        console.error("Error adding course:", error);
         throw error;
       }
 
       if (data) {
+        console.log("Course added successfully:", data);
         const newCourseData: Course = {
           id: data.id,
           title: data.title,
